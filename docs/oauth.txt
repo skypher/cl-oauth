@@ -1,0 +1,1 @@
+HMAC-SHA1 (key size min. 2048 bits; later HMAC-SHA256)

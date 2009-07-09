@@ -1,0 +1,11 @@
+http://bundesrecht.juris.de/kredwg/BJNR008810961.html
+    Abweichend von § 4 Abs. 1 des Geldwäschegesetzes kann die Überprüfung der Identität
+  des Vertragspartners und des wirtschaftlich Berechtigten auch unverzüglich nach
+  der Eröffnung eines Kontos oder Depots abgeschlossen werden. In diesem Fall muss
+  sichergestellt sein, dass vor Abschluss der Überprüfung der Identität keine Gelder von
+  dem Konto oder dem Depot abverfügt werden können.
+
+http://de.wikipedia.org/wiki/Identpr%C3%BCfung
+http://de.wikipedia.org/wiki/Legitimationspr%C3%BCfung
+http://de.wikipedia.org/wiki/Know_your_Customer
+
