@@ -1,7 +1,0 @@
-customer-id.de
-customer-id.net
-know-your-customer.de
-know-your-customer.net
-knowyourcustomer.de
-knowyourcustomer.net
-
