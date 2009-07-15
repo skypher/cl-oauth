@@ -28,8 +28,7 @@
                                    (auth-parameters-fn (constantly nil))
                                    (post-parameters-fn #'hunchentoot:post-parameters)
                                    (get-parameters-fn #'hunchentoot:get-parameters))
-  "9.1.1"
-  ;; collect parameters and remove those excluded by the standard.
+  "Collect request parameters and remove those excluded by the standard. See 9.1.1."
   (let ((parameters (remove "oauth_signature"
                             (append (remove "realm" (funcall auth-parameters-fn request)
                                             :key #'car :test #'equalp) ; TODO: http auth header parameters
@@ -53,4 +52,40 @@
         (if (or (zerop (length result)) include-leading-ampersand)
           0
           1))))
+
+(defun query-string->alist (query-string)
+  (let* ((kv-pairs (remove "" (split-sequence #\& query-string) :test #'equal))
+         (alist (mapcar (lambda (kv-pair)
+                          (let ((kv (split-sequence #\= kv-pair)))
+                            (cons (first kv) (second kv))))
+                        kv-pairs)))
+    alist))
+
+(defmethod normalize-request-uri ((uri string))
+  (normalize-request-uri (puri:parse-uri uri)))
+
+(defmethod normalize-request-uri ((uri puri:uri))
+  "9.1.2"
+  (let ((*print-case* :downcase)) ; verify that this works!!
+    (concatenate 'string (princ-to-string (puri:uri-scheme uri))
+                         "://"
+                         (puri:uri-host uri)
+                         (puri:uri-path uri))))
+
+(defun signature-base-string (uri &key (request *request*)
+                                  (method (request-method* request))
+                                  (parameters (normalized-parameters :request request)))
+  (let ((*print-case* :downcase))
+    (concatenate 'string (princ-to-string method)
+                         "&" (hunchentoot:url-encode (normalize-request-uri uri))
+                         "&" (hunchentoot:url-encode (alist->query-string parameters :include-leading-ampersand nil)))))
+
+(defun hmac-key (consumer-secret token-secret)
+  "9.2"
+  (concatenate 'string consumer-secret "&" token-secret))
+
+(defun encode-signature (octets)
+  "9.2.1"
+  (hunchentoot:url-encode
+    (cl-base64:usb8-array-to-base64-string octets)))
 

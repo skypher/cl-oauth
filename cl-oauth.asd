@@ -28,7 +28,11 @@
                (:module "test"
                         :components ((:file "package")
                                      (:module "core"
-                                              :components ((:file "parameters"))
+                                              :components ((:file "parameters")
+                                                           (:file "signature"))
                                               :depends-on ("package")))))
-  :depends-on (:ironclad :weblocks :hunchentoot :alexandria :anaphora :f-underscore :fiveam))
+  :depends-on (:ironclad :cl-base64
+               :alexandria :anaphora :f-underscore :split-sequence
+               :fiveam
+               :hunchentoot))
 
