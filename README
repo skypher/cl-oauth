@@ -1,0 +1,22 @@
+This is CL-OAuth, an implementation of the OAuth 1.0a standard
+in Common Lisp.
+
+Spec URI: http://oauth.net/core/1.0a
+
+Section numbers mentioned in the code and documentation
+refer to this document.
+
+
+Not supported at this time:
+
+  * parameters from Auth header (needs some parsing).
+
+  * signatures different from HMAC-SHA1 (it's easy to use other
+    digests and MACs via Ironclad but RSA needs to have padding
+    implemented).
+
+
+People who contributed in some way to this library:
+
+  * Leslie P. Polzer <polzer@gnu.org>: base implementation.
+
