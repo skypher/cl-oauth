@@ -33,13 +33,21 @@
 
 (define-handler (get-request-token)
   "Hand out request tokens."
-  (validate-request-token-request)
-  (request-token-response (make-request-token)))
+  (let ((callback (validate-request-token-request)))
+    (unless callback
+      (error "Not prepared for an OOB callback setup!"))
+    (request-token-response (make-request-token :callback callback))))
 
 (define-handler (get-user-authorization)
-  "Let the user authorize the access token [6.2.1]."
-  (validate-authorization-request)
-  (authorization-response))
+  "Let the user authorize the access token. [6.2.1]."
+  (let ((request-token (validate-authorization-request)))
+    (when t ; XXX authorize user here
+      (setf (request-token-authorized-p request-token) t)
+      (let ((callback-uri (request-token-callback-uri request-token)))
+        (assert callback-uri)
+        (hunchentoot:redirect (princ-to-string (finalize-callback-uri request-token)))))
+    ;; NOTE: optionally notify the Consumer if the user refused authorization.
+    ))
 
 (define-handler (exchange-access-token)
   "Verify an access token and grant/deny access accordingly."
