@@ -1,4 +1,5 @@
-(defpackage #:oauth
+(defpackage #:cl-oauth
+  (:nicknames #:oauth)
   (:use #:cl #:anaphora #:f-underscore)
   (:import-from #:hunchentoot
                 #:create-prefix-dispatcher
