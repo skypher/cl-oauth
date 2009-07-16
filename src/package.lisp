@@ -1,5 +1,5 @@
 (defpackage #:oauth
-  (:use #:cl #:weblocks #:anaphora #:f-underscore)
+  (:use #:cl #:anaphora #:f-underscore)
   (:import-from #:hunchentoot
                 #:create-prefix-dispatcher
                 #:*dispatch-table*

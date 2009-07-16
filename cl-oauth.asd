@@ -18,21 +18,29 @@
   :components ((:static-file "cl-oauth.asd")
                (:module "src"
                         :components ((:file "package")
+                                     (:module "util"
+                                              :components ((:file "uri"))
+                                              :depends-on ("package"))
                                      (:module "core"
                                               :components ((:file "crypto")
                                                            (:file "parameters")
-                                                           (:file "tokens")
-                                                           (:file "handlers")
+                                                           (:file "tokens"))
+                                              :depends-on ("package" "util"))
+                                     (:module "service-provider"
+                                              :components ((:file "handlers")
                                                            (:file "server"))
-                                              :depends-on ("package"))))
+                                              :depends-on ("package" "core"))
+                                     (:module "consumer"
+                                              :components ()
+                                              :depends-on ("package" "core"))))
                (:module "test"
                         :components ((:file "package")
                                      (:module "core"
                                               :components ((:file "parameters")
                                                            (:file "signature"))
                                               :depends-on ("package")))))
-  :depends-on (:ironclad :cl-base64
+  :depends-on (:ironclad :cl-base64 :babel
                :alexandria :anaphora :f-underscore :split-sequence
                :fiveam
-               :hunchentoot))
+               :puri :hunchentoot))
 

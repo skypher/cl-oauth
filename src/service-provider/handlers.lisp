@@ -27,13 +27,22 @@
          (setf *dispatch-table* (cons ,dispatcher (remove ,old-dispatcher *dispatch-table*))
                (gethash ',name *handlers*) ,dispatcher)))))
 
+(define-handler (register-consumer)
+  "Register a new consumer."
+  (princ-to-string (register-consumer)))
+
 (define-handler (get-request-token)
-  "request token")
+  "Hand out request tokens."
+  (validate-request-token-request)
+  (request-token-response (make-request-token)))
 
 (define-handler (get-user-authorization)
-  "user auth")
+  "Let the user authorize the access token [6.2.1]."
+  (validate-authorization-request)
+  (authorization-response))
 
 (define-handler (exchange-access-token)
+  "Verify an access token and grant/deny access accordingly."
   "access token xch")
 
 ;; TODO: automatically define a handler that shows a page documenting

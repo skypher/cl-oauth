@@ -66,19 +66,33 @@
 
 (defmethod normalize-request-uri ((uri puri:uri))
   "9.1.2"
-  (let ((*print-case* :downcase)) ; verify that this works!!
-    (concatenate 'string (princ-to-string (puri:uri-scheme uri))
+  (let ((*print-case* :downcase) ; verify that this works!!
+        (scheme (puri:uri-scheme uri))
+        (host (puri:uri-host uri))
+        (port (puri:uri-port uri))
+        (path (puri:uri-path uri)))
+    (concatenate 'string (princ-to-string scheme)
                          "://"
-                         (puri:uri-host uri)
-                         (puri:uri-path uri))))
+                         host
+                         (cond
+                           ((and (eq scheme :http) (eql port 80))
+                            "")
+                           ((and (eq scheme :https) (eql port 443))
+                            "")
+                           (t
+                            (concatenate 'string ":" (princ-to-string port))))
+                         path)))
 
 (defun signature-base-string (uri &key (request *request*)
                                   (method (request-method* request))
                                   (parameters (normalized-parameters :request request)))
   (let ((*print-case* :downcase))
     (concatenate 'string (princ-to-string method)
-                         "&" (hunchentoot:url-encode (normalize-request-uri uri))
-                         "&" (hunchentoot:url-encode (alist->query-string parameters :include-leading-ampersand nil)))))
+                         "&" (url-encode
+                               (normalize-request-uri uri))
+                         "&" (url-encode
+                               (alist->query-string parameters
+                                                    :include-leading-ampersand nil)))))
 
 (defun hmac-key (consumer-secret token-secret)
   "9.2"
@@ -86,6 +100,6 @@
 
 (defun encode-signature (octets)
   "9.2.1"
-  (hunchentoot:url-encode
+  (url-encode
     (cl-base64:usb8-array-to-base64-string octets)))
 
