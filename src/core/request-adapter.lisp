@@ -5,6 +5,7 @@
 ;;; defaults to Hunchentoot
 
 (export '(request-adapter
+          make-request-adapter
           *request-adapter*
           make-hunchentoot-request-adapter
           *request*
@@ -48,7 +49,8 @@
                               (keyword result)
                               (symbol (intern (symbol-name result) :keyword))
                               (string (intern result :keyword)))))
-    (assert (member normalized-result '(:get :post :put :delete :head :trace :options :connect)))))
+    (assert (member normalized-result '(:get :post :put :delete :head :trace :options :connect)))
+    result))
 
 ;; TODO: assertions/type checks for the following functions
   

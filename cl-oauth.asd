@@ -24,9 +24,9 @@
                                               :depends-on ("package"))
                                      (:module "core"
                                               :components ((:file "crypto")
-                                                           (:file "request")
+                                                           (:file "request-adapter")
                                                            (:file "parameters"
-                                                                  :depends-on ("request"))
+                                                                  :depends-on ("request-adapter"))
                                                            (:file "signature")
                                                            (:file "tokens"
                                                                   :depends-on ("signature")))
@@ -41,8 +41,11 @@
                (:module "test"
                         :components ((:file "package")
                                      (:module "core"
-                                              :components ((:file "parameters")
-                                                           (:file "signature"))
+                                              :components ((:file "request-adapter")
+                                                           (:file "parameters"
+                                                                  :depends-on ("request-adapter"))
+                                                           (:file "signature"
+                                                                  :depends-on ("request-adapter")))
                                               :depends-on ("package")))))
   :depends-on (:ironclad :cl-base64 :babel
                :alexandria :anaphora :f-underscore :split-sequence

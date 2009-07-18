@@ -15,18 +15,15 @@
 
 ;; A.5.1
 (test signature-base-string/spec
-  (let* ((method "GET")
+  (let* ((*request-method* :get)
          (uri "http://photos.example.net/photos")
          (parameters (format nil "file=vacation.jpg&oauth_consumer_key=dpf43f3p2l4k3l03~
                                   &oauth_nonce=kllo9940pd9333jh&oauth_signature_method=HMAC-SHA1~
                                   &oauth_timestamp=1191242096&oauth_token=nnch734d00sl2jdk~
                                   &oauth_version=1.0&size=original"))
-         (parameters-alist (query-string->alist parameters))
-         (normalized-parameters (oauth::normalized-parameters :request nil :auth-parameters-fn (constantly nil)
-                                                       :post-parameters-fn (constantly nil)
-                                                       :get-parameters-fn (constantly parameters-alist)))
-         (signature-base-string (oauth::signature-base-string uri :request nil :method method
-                                                              :parameters normalized-parameters)))
+         (parameters-alist (oauth::query-string->alist parameters))
+         (*get-parameters* parameters-alist)
+         (signature-base-string (oauth::signature-base-string uri)))
     (is (equal signature-base-string
                *sample-signature-base-string*))))
 

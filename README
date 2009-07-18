@@ -41,3 +41,6 @@ TODO (apart from spec things not implemented yet):
 
   * abstract *issued-{request,access,consumer}-tokens* hash table access
 
+  * maybe change structs into classes for mixins, guaranteed correct redef
+    and GF dispatch
+

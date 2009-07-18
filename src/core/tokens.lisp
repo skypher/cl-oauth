@@ -42,9 +42,11 @@
 (defstruct (request-token (:include token))
   (callback-uri nil :type (or null puri:uri))
   (verification-code (random-verification-code) :type string)
-  (authorized-p nil :type boolean))
+  (authorized-p nil :type boolean)
+  (consumer nil :type (or consumer-token null)))
 
-(defstruct (access-token (:include token)))
+(defstruct (access-token (:include token))
+  (consumer nil :type (or consumer-token null)))
 
 ;; TODO: need to store application-specific data somewhere.
 
@@ -148,8 +150,7 @@
   (check-signature)
   (let* ((consumer-token (get-supplied-consumer-token))
          (callback-uri (get-supplied-callback-uri :allow-oob-callback-p allow-oob-callback-p))
-         (request-token (funcall request-token-ctor)))
-    (declare (ignore consumer-token)) ; we just check whether we know the Consumer
+         (request-token (funcall request-token-ctor :consumer-token consumer-token)))
     (setf (request-token-callback-uri request-token) (when callback-uri
                                                        (puri:parse-uri callback-uri)))
     (setf (gethash (token-key request-token) *issued-request-tokens*) request-token)
@@ -185,7 +186,7 @@
   (check-nonce-and-timestamp)
   (check-signature)
   (let* ((request-token (get-supplied-request-token :check-verification-code-p t))
-         (access-token (funcall access-token-ctor)))
+         (access-token (funcall access-token-ctor :consumer (request-token-consumer request-token))))
     (setf (gethash (token-key access-token) *issued-access-tokens*) access-token)
     (prog1
         access-token
@@ -214,13 +215,14 @@
         (error "Invalid access token."))
       access-token)))
 
-#|
 (defun validate-access-token ()
   (assert (>= (length (normalized-parameters)) 6))
   (check-version)
   (check-nonce-and-timestamp)
   (check-signature)
-  (let ((consumer-token (get-supplied-consumer-token))) 
+  (let ((consumer-token (get-supplied-consumer-token))
+        (access-token (get-supplied-access-token)))
+    (unless (eq consumer-token (access-token-consumer access-token))
+      (error "Access token ~S wasn't issued for Consumer ~S" access-token consumer-token))
+    t))
 
-        WIP
-|#

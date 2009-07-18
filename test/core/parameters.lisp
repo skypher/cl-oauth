@@ -25,18 +25,16 @@
              "foo=1&bar=2")))
 
 (test normalized-parameters/spec-example
-  (is (equal
-        (oauth::alist->query-string
-          (oauth::normalized-parameters
-            :request nil
-            :get-parameters-fn (constantly nil)
-            :post-parameters-fn (constantly '(("a" . "1")
-                                              ("c" . "hi%20there")
-                                              ("f" . "25")
-                                              ("f" . "50")
-                                              ("f" . "a")
-                                              ("z" . "p")
-                                              ("z" . "t"))))
-          :include-leading-ampersand nil)
-        "a=1&c=hi%20there&f=25&f=50&f=a&z=p&z=t")))
+  (let ((*post-parameters* '(("a" . "1")
+                             ("c" . "hi%20there")
+                             ("f" . "25")
+                             ("f" . "50")
+                             ("f" . "a")
+                             ("z" . "p")
+                             ("z" . "t"))))
+    (is (equal
+          (oauth::alist->query-string
+            (oauth::normalized-parameters)
+            :include-leading-ampersand nil)
+          "a=1&c=hi%20there&f=25&f=50&f=a&z=p&z=t"))))
 

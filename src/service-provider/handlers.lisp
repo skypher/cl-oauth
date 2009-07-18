@@ -38,6 +38,7 @@
 
 (define-handler (get-user-authorization)
   "Let the user authorize the access token. [6.2.1]."
+  (assert (eq (request-method) :get)) ; [6.2.1]
   (let ((request-token (get-supplied-request-token)))
     (when t ; XXX obtain user permission here
       (setf (request-token-authorized-p request-token) t)

@@ -9,6 +9,8 @@
   "Per-request cache for parameters in OAuth requests.")
 
 (defvar *signature-cache* (tg:make-weak-hash-table :test #'eq :weakness :key)
+  ;; this is much more simple than maintaining multiple caches
+  ;; for different parameter list flavors.
   "Per-request cache for signatures in OAuth requests.")
 
 
