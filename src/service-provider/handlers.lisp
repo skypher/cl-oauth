@@ -33,25 +33,26 @@
 
 (define-handler (get-request-token)
   "Hand out request tokens."
-  (let ((callback (validate-request-token-request)))
-    (unless callback
-      (error "Not prepared for an OOB callback setup!"))
-    (request-token-response (make-request-token :callback callback))))
+  (let ((request-token (validate-request-token-request)))
+    (request-token-response request-token)))
 
 (define-handler (get-user-authorization)
   "Let the user authorize the access token. [6.2.1]."
-  (let ((request-token (validate-authorization-request)))
-    (when t ; XXX authorize user here
+  (let ((request-token (get-supplied-request-token)))
+    (when t ; XXX obtain user permission here
       (setf (request-token-authorized-p request-token) t)
+      ;; now notify the Consumer that the request token has been authorized.
       (let ((callback-uri (request-token-callback-uri request-token)))
         (assert callback-uri)
         (hunchentoot:redirect (princ-to-string (finalize-callback-uri request-token)))))
     ;; NOTE: optionally notify the Consumer if the user refused authorization.
     ))
 
-(define-handler (exchange-access-token)
-  "Verify an access token and grant/deny access accordingly."
-  "access token xch")
+(define-handler (get-access-token)
+  "Get an access token from a previously issued and authorized request token."
+  (let ((access-token (validate-access-token-request)))
+    access-token))
+
 
 ;; TODO: automatically define a handler that shows a page documenting
 ;; the other handlers. See section 4.2.

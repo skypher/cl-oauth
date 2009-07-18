@@ -13,6 +13,8 @@ Not supported at this time:
 
   * Additional parameters in server response [6.1.2]. Trivial.
 
+  * Timestamp checking [8]. Trivial.
+
   * Nonce checking [8, 9].
 
   * signatures different from HMAC-SHA1 (it's easy to use other
@@ -34,4 +36,8 @@ TODO (apart from spec things not implemented yet):
   * abstract storage, can't get far with volatile memory
 
   * better support for Consumers (examples, convenience interface)
+
+  * move service provider convenience stuff to examples
+
+  * abstract *issued-{request,access,consumer}-tokens* hash table access
 

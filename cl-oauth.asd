@@ -19,12 +19,17 @@
                (:module "src"
                         :components ((:file "package")
                                      (:module "util"
-                                              :components ((:file "uri"))
+                                              :components ((:file "uri")
+                                                           (:file "query-string"))
                                               :depends-on ("package"))
                                      (:module "core"
                                               :components ((:file "crypto")
-                                                           (:file "parameters")
-                                                           (:file "tokens"))
+                                                           (:file "request")
+                                                           (:file "parameters"
+                                                                  :depends-on ("request"))
+                                                           (:file "signature")
+                                                           (:file "tokens"
+                                                                  :depends-on ("signature")))
                                               :depends-on ("package" "util"))
                                      (:module "service-provider"
                                               :components ((:file "handlers")
@@ -41,6 +46,7 @@
                                               :depends-on ("package")))))
   :depends-on (:ironclad :cl-base64 :babel
                :alexandria :anaphora :f-underscore :split-sequence
+               :trivial-garbage
                :fiveam
                :puri :hunchentoot))
 

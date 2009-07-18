@@ -3,103 +3,43 @@
 
 (export '(parameter))
 
-(defun parameter-from-http-auth (name &optional (request *request*))
-  nil) ; stub; not supported yet.
-  
-(defun parameter-from-post-data (name &optional (request *request*))
-  (hunchentoot:post-parameter name))
+;; the cache allows us to call NORMALIZED-PARAMETERS repeatedly
+;; without excessive processing penalty.
+(defvar *parameters-cache* (tg:make-weak-hash-table :test #'eq :weakness :key)
+  "Per-request cache for parameters in OAuth requests.")
 
-(defun parameter-from-get-data (name &optional (request *request*))
-  (hunchentoot:get-parameter name))
+(defvar *signature-cache* (tg:make-weak-hash-table :test #'eq :weakness :key)
+  "Per-request cache for signatures in OAuth requests.")
 
-(defun parameter (name &optional (request *request*))
-  "Get the parameter NAME from REQUEST. See section 5.2."
-  ;; TODO: check that the parameter appears only once.
-  (or (parameter-from-http-auth name request)
-      (parameter-from-post-data name request)
-      (parameter-from-get-data name request)))
 
-(defun parameters (&optional (request *request*))
-  (append nil ; TODO: http auth header parameters
-    (hunchentoot:post-parameters request)
-    (hunchentoot:get-parameters request)))
+(defun normalized-parameters (&key remove-duplicates-p)
+  "Collect request parameters and remove those excluded by the standard. See 9.1.1.
+  Note: REMOVE-DUPLICATES-P has no effect right now."
+  (declare (ignorable remove-duplicates-p))
+  (or (gethash (request) *parameters-cache*)
+      (let ((parameters (append (remove "realm" (auth-parameters)
+                                        :key #'car :test #'equalp) ; TODO: http auth header parameters
+                                (post-parameters)
+                                (get-parameters))))
+        ;; save the signature, we might need it later
+        (setf (gethash (request) *signature-cache*)
+              (cdr (assoc "oauth_signature" parameters :test #'equal)))
+        (let* ((parameters (remove "oauth_signature" parameters
+                                   :key #'car :test #'equal))
+               (sorted-parameters (sort parameters #'string< :key (lambda (x)
+                                                                    "Sort by key and value."
+                                                                    (concatenate 'string (princ-to-string (car x))
+                                                                                 (princ-to-string (cdr x)))))))
+          (setf (gethash (request) *parameters-cache*) sorted-parameters)
+          sorted-parameters
+          #+(or) ; disabled for now because it makes caching slightly more complex.
+                 ; we just don't support elimination of duplicates right now.
+          (if remove-duplicates-p
+            (remove-duplicates sorted-parameters :key #'car :test #'string-equal :from-end t)
+            sorted-parameters)))))
 
-(defun normalized-parameters (&key (request *request*)
-                                   (auth-parameters-fn (constantly nil))
-                                   (post-parameters-fn #'hunchentoot:post-parameters)
-                                   (get-parameters-fn #'hunchentoot:get-parameters))
-  "Collect request parameters and remove those excluded by the standard. See 9.1.1."
-  (let ((parameters (remove "oauth_signature"
-                            (append (remove "realm" (funcall auth-parameters-fn request)
-                                            :key #'car :test #'equalp) ; TODO: http auth header parameters
-                                    (funcall post-parameters-fn request)
-                                    (funcall get-parameters-fn request))
-                            :key #'car :test #'equalp)))
-    (sort parameters #'string< :key (lambda (x)
-                                      "Sort by key and value."
-                                      (concatenate 'string (princ-to-string (car x))
-                                                           (princ-to-string (cdr x)))))))
-
-(defun splice-alist (alist)
-  (reduce #'nconc (mapcar (lambda (x)
-                            (list (car x) (cdr x)))
-                          alist)))
-
-(defun alist->query-string (alist &key (include-leading-ampersand t))
-    (let ((result (format nil "~{&~A=~A~}" (splice-alist alist))))
-      (subseq
-        result
-        (if (or (zerop (length result)) include-leading-ampersand)
-          0
-          1))))
-
-(defun query-string->alist (query-string)
-  (let* ((kv-pairs (remove "" (split-sequence #\& query-string) :test #'equal))
-         (alist (mapcar (lambda (kv-pair)
-                          (let ((kv (split-sequence #\= kv-pair)))
-                            (cons (first kv) (second kv))))
-                        kv-pairs)))
-    alist))
-
-(defmethod normalize-request-uri ((uri string))
-  (normalize-request-uri (puri:parse-uri uri)))
-
-(defmethod normalize-request-uri ((uri puri:uri))
-  "9.1.2"
-  (let ((*print-case* :downcase) ; verify that this works!!
-        (scheme (puri:uri-scheme uri))
-        (host (puri:uri-host uri))
-        (port (puri:uri-port uri))
-        (path (puri:uri-path uri)))
-    (concatenate 'string (princ-to-string scheme)
-                         "://"
-                         host
-                         (cond
-                           ((and (eq scheme :http) (eql port 80))
-                            "")
-                           ((and (eq scheme :https) (eql port 443))
-                            "")
-                           (t
-                            (concatenate 'string ":" (princ-to-string port))))
-                         path)))
-
-(defun signature-base-string (uri &key (request *request*)
-                                  (method (request-method* request))
-                                  (parameters (normalized-parameters :request request)))
-  (let ((*print-case* :downcase))
-    (concatenate 'string (princ-to-string method)
-                         "&" (url-encode
-                               (normalize-request-uri uri))
-                         "&" (url-encode
-                               (alist->query-string parameters
-                                                    :include-leading-ampersand nil)))))
-
-(defun hmac-key (consumer-secret token-secret)
-  "9.2"
-  (concatenate 'string consumer-secret "&" token-secret))
-
-(defun encode-signature (octets)
-  "9.2.1"
-  (url-encode
-    (cl-base64:usb8-array-to-base64-string octets)))
+(defun parameter (name &key (test #'equal))
+  "Note: OAuth parameters are case-sensitive per section 5.
+  The case of user-supplied parameters is not restricted."
+  (cdr (assoc name (normalized-parameters) :test test)))
 

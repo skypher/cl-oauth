@@ -21,3 +21,25 @@
                                                                      :external-format external-format)
                             do (format s "%~2,'0x" octet)))))))
 
+(defmethod normalize-request-uri ((uri string))
+  (normalize-request-uri (puri:parse-uri uri)))
+
+(defmethod normalize-request-uri ((uri puri:uri))
+  "9.1.2"
+  (let ((*print-case* :downcase) ; verify that this works!!
+        (scheme (puri:uri-scheme uri))
+        (host (puri:uri-host uri))
+        (port (puri:uri-port uri))
+        (path (puri:uri-path uri)))
+    (concatenate 'string (string-downcase (princ-to-string scheme))
+                         "://"
+                         (string-downcase host)
+                         (cond
+                           ((and (eq scheme :http) (eql port 80))
+                            "")
+                           ((and (eq scheme :https) (eql port 443))
+                            "")
+                           (t
+                            (concatenate 'string ":" (princ-to-string port))))
+                         path)))
+

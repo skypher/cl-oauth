@@ -46,6 +46,8 @@
 
 (defstruct (access-token (:include token)))
 
+;; TODO: need to store application-specific data somewhere.
+
 ;;; consumer management
 (defvar *registered-consumers* (make-hash-table :test #'equalp))
 
@@ -59,72 +61,166 @@
   (gethash key *registered-consumers*))
 
 
+;;; signature checking
+(defun check-signature ()
+  (unless (equalp (parameter "oauth_signature_method") "HMAC-SHA1")
+    (error "Signature method not passed or different from HMAC-SHA1"))
+  (let ((signature (gethash (request) *signature-cache*)))
+    (unless signature
+      (error "This request is not signed"))
+    ;; TODO
+    t))
+
+
+;;; nonce and timestamp checking
+(defun check-nonce-and-timestamp ()
+  ;; STUB
+  (unless (parameter "oauth_timestamp")
+    (error "Timestamp is missing"))
+  (unless (parameter "oauth_nonce")
+    (error "Nonce is missing"))
+  t)
+
+
+;;; version checking
+(defun check-version ()
+  (let ((version (parameter "oauth_version")))
+    (unless (member version '("1.0" nil) :test #'equalp)
+      (cerror "Not prepared to handle OAuth version other than 1.0" version))
+    t))
+
+
+;;; verification code checking
+(defun check-verification-code ()
+  (unless (equal (parameter "oauth_verifier")
+                 (request-token-verification-code (get-supplied-request-token)))
+    (error "Invalid request token verification code"))
+  t)
+
+
+;;; misc
+(defun get-supplied-consumer-token ()
+  (let ((consumer-key (parameter "oauth_consumer_key")))
+    (unless consumer-key
+      (error "Consumer key not supplied"))
+    (let ((consumer-token (get-consumer-token consumer-key)))
+      (unless consumer-token
+        (error "Can't identify Consumer"))
+      consumer-token)))
+
+
+(defun get-supplied-callback-uri (&key allow-oob-callback-p)
+  (let ((callback (parameter "oauth_callback")))
+    (cond
+      ((not callback)
+       (error "No callback supplied"))
+      ((and (not allow-oob-callback-p) (equal callback "oob"))
+       (error "Not prepared for an OOB callback setup!"))
+      (t
+       callback))))
+
 ;;; request token management
 (defvar *issued-request-tokens* (make-hash-table :test #'equalp))
 
-(defun request-token-response (token &rest additional-parameters)
-  (declare (ignore additional-parameters)) ; not supported
+(defun invalidate-request-token (request-token)
+  (remhash (token-key request-token) *issued-request-tokens*))
+
+(defun request-token-response (request-token &rest additional-parameters)
+  (declare (ignore additional-parameters)) ; TODO not supported yet
   (url-encode (alist->query-string
-                `(("oauth_token" . ,(token-key token))
-                  ("oauth_token_secret" . ,(token-secret token))
+                `(("oauth_token" . ,(token-key request-token))
+                  ("oauth_token_secret" . ,(token-secret request-token))
                   ("oauth_callback_confirmed" . "true")))))
 
-(defun validate-request-token-request (&optional (request *request*))
+(defun validate-request-token-request (&key (request-token-ctor #'make-request-token)
+                                            allow-oob-callback-p)
   "Check whether REQUEST is a valid request token request.
   
   Returns the supplied Consumer callback (a PURI:URI) or NIL if
   the callback is supposed to be transferred oob. [6.1.1]"
-  ;; TODO: appropriate 400/401 return code to simplify debugging
-  ;; on the consumer side.
+  ;; TODO: in case of error set appropriate 400/401 return code to
+  ;; simplify debugging on the consumer side.
   ;;
   ;; TODO: raise specific errors instead of simple errors
-  ;;
-  ;; TODO: maybe return a newly created request token here?
-  (let ((parameters (normalized-parameters :request request)))
-    (flet ((parameter (key)
-              (cdr (assoc key parameters))))
-      (let ((version (parameter "oauth_version")))
-        (unless (member version '("1.0" nil) :test #'equalp)
-          (cerror "Not prepared to handle OAuth version other than 1.0" version)))
-      (unless (equalp (parameter "oauth_signature_method") "HMAC-SHA1")
-        (error "Signature method different from HMAC-SHA1"))
-      ;; TODO: check timestamp and nonce
-      (let ((consumer-key (parameter "oauth_consumer_key")))
-        (unless consumer-key
-          (error "Consumer key not supplied"))
-        (let ((consumer-token (get-consumer-token consumer-key))
-              (callback (parameter "oauth_callback")))
-          (unless consumer-token
-            (error "Can't identify consumer"))
-          (unless callback
-            (error "No callback supplied"))
-          ;; TODO: validate signature
-          (unless (equalp callback "oob")
-            (puri:parse-uri callback)))))))
+  (assert (>= (length (normalized-parameters)) 6))
+  (check-version)
+  (check-nonce-and-timestamp)
+  (check-signature)
+  (let* ((consumer-token (get-supplied-consumer-token))
+         (callback-uri (get-supplied-callback-uri :allow-oob-callback-p allow-oob-callback-p))
+         (request-token (funcall request-token-ctor)))
+    (declare (ignore consumer-token)) ; we just check whether we know the Consumer
+    (setf (request-token-callback-uri request-token) (when callback-uri
+                                                       (puri:parse-uri callback-uri)))
+    (setf (gethash (token-key request-token) *issued-request-tokens*) request-token)
+    request-token))
+
+(defun get-supplied-request-token (&key check-verification-code-p)
+  "Utility function that extracts the Consumer-supplied request token
+  from a list of normalized parameters. Guards against non-existing
+  and unknown tokens. Returns the request token on success."
+  ;; TODO: raise specific errors
+  ;; TODO: check whether the supplied token matches the Consumer key
+  (let ((request-token-key (parameter "oauth_token")))
+    ;; check if the Consumer supplied a request token
+    (unless request-token-key
+      (error "No request token identifier (oauth_token) supplied."))
+    ;; check if the supplied request token is known to us
+    (let ((request-token (gethash request-token-key *issued-request-tokens*)))
+      (unless request-token
+        (error "Invalid request token."))
+      (when check-verification-code-p
+        (check-verification-code))
+      ;; everything's looking good
+      request-token)))
 
 
 ;;; access token management
 (defvar *issued-access-tokens* (make-hash-table :test #'equalp))
 
-(defun validate-authorization-request (&optional (request *request*))
-  "Validate an authorization request. Returns the request token object
-  on successful validation or (VALUES NIL <REASON>) on validation
-  failure. <REASON> is one of :TOKEN-NOT-PRESENT or :INVALID-TOKEN.
-  The Service Provider application may use this return value
-  to customize its response (e.g. fail or show a form when
-  the token wasn't supplied)."
-  ;; TODO: raise specific errors
-  ;; TODO: 6.2.1 says that this request comes in via GET; verify this
-  (let ((parameters (normalized-parameters :request request)))
-    (flet ((parameter (key)
-              (cdr (assoc key parameters))))
-      (let ((request-token-key (parameter "oauth_token")))
-        ;; check if the Consumer supplied a request token
-        (unless request-token-key
-          (error "No request token identifier (oauth_token) supplied."))
-        ;; check if the supplied request token is known to us
-        (let ((request-token (gethash request-token-key *issued-request-tokens*)))
-          (unless request-token
-            (error "Invalid request token."))
-          request-token)))))
+(defun validate-access-token-request (&key (access-token-ctor #'make-access-token))
+  (assert (= (length (normalized-parameters)) 8)) ; no user-supplied parameters allowed here, and the
+                                     ; spec forbids duplicate oauth args per section 5.
+  (check-version)
+  (check-nonce-and-timestamp)
+  (check-signature)
+  (let* ((request-token (get-supplied-request-token :check-verification-code-p t))
+         (access-token (funcall access-token-ctor)))
+    (setf (gethash (token-key access-token) *issued-access-tokens*) access-token)
+    (prog1
+        access-token
+      (invalidate-request-token request-token))))
 
+(defun access-token-response (access-token &rest additional-parameters)
+  (declare (ignore additional-parameters)) ; TODO not supported yet
+  (url-encode (alist->query-string
+                `(("oauth_token" . ,(token-key access-token))
+                  ("oauth_token_secret" . ,(token-secret access-token))))))
+
+
+;;; protected resource access management [7]
+(defun get-supplied-access-token ()
+  "Utility function that extracts the Consumer-supplied request token
+  from a list of normalized parameters. Guards against non-existing
+  and unknown tokens. Returns the request token on success."
+  ;; TODO: raise specific errors
+  ;; TODO: check whether the supplied token matches the Consumer key
+  (let ((access-token-key (parameter "oauth_token")))
+    (unless access-token-key
+      (error "No access token identifier (oauth_token) supplied."))
+    ;; check if the supplied access token is known to us
+    (let ((access-token (gethash access-token-key *issued-access-tokens*)))
+      (unless access-token
+        (error "Invalid access token."))
+      access-token)))
+
+#|
+(defun validate-access-token ()
+  (assert (>= (length (normalized-parameters)) 6))
+  (check-version)
+  (check-nonce-and-timestamp)
+  (check-signature)
+  (let ((consumer-token (get-supplied-consumer-token))) 
+
+        WIP
+|#
