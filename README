@@ -37,10 +37,5 @@ TODO (apart from spec things not implemented yet):
 
   * better support for Consumers (examples, convenience interface)
 
-  * move service provider convenience stuff to examples
-
   * abstract *issued-{request,access,consumer}-tokens* hash table access
-
-  * maybe change structs into classes for mixins, guaranteed correct redef
-    and GF dispatch
 

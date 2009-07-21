@@ -1,11 +1,6 @@
 
 (in-package :oauth)
 
-(defun splice-alist (alist)
-  (reduce #'nconc (mapcar (lambda (x)
-                            (list (car x) (cdr x)))
-                          alist)))
-
 (defun alist->query-string (alist &key (include-leading-ampersand t))
     (let ((result (format nil "~{&~A=~A~}" (splice-alist alist))))
       (subseq

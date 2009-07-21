@@ -12,15 +12,17 @@
 (defsystem :cl-oauth
   :name "CL-OAuth"
   :description "Common Lisp OAuth implementation"
-  :version "0.1"
+  :version "2"
   :maintainer "Leslie P. Polzer <polzer@gnu.org>"
   :licence "LLGPL"
   :components ((:static-file "cl-oauth.asd")
                (:module "src"
                         :components ((:file "package")
                                      (:module "util"
-                                              :components ((:file "uri")
-                                                           (:file "query-string"))
+                                              :components ((:file "misc")
+                                                           (:file "uri")
+                                                           (:file "query-string"
+                                                                  :depends-on ("misc")))
                                               :depends-on ("package"))
                                      (:module "core"
                                               :components ((:file "crypto")
@@ -29,12 +31,10 @@
                                                                   :depends-on ("request-adapter"))
                                                            (:file "signature")
                                                            (:file "tokens"
-                                                                  :depends-on ("signature")))
+                                                                  :depends-on ("signature"))
+                                                           (:file "service-provider"
+                                                                  :depends-on ("tokens")))
                                               :depends-on ("package" "util"))
-                                     (:module "service-provider"
-                                              :components ((:file "handlers")
-                                                           (:file "server"))
-                                              :depends-on ("package" "core"))
                                      (:module "consumer"
                                               :components ()
                                               :depends-on ("package" "core"))))
@@ -48,8 +48,13 @@
                                                                   :depends-on ("request-adapter")))
                                               :depends-on ("package")))))
   :depends-on (:ironclad :cl-base64 :babel
+               :closer-mop
                :alexandria :anaphora :f-underscore :split-sequence
                :trivial-garbage
                :fiveam
                :puri :hunchentoot))
+
+(defmethod perform ((o asdf:test-op) (c (eql (find-system :cl-oauth))))
+  (funcall (intern "RUN!" :5am)
+           (intern "OAUTH" :oauth-test)))
 
