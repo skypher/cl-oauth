@@ -49,7 +49,8 @@
                                                            (:file "tokens")
                                                            (:file "service-provider"
                                                                   :depends-on ("request-adapter")))
-                                              :depends-on ("package")))))
+                                              :depends-on ("package")))
+                        :depends-on ("src")))
   :depends-on (:ironclad :cl-base64 :babel
                :closer-mop
                :alexandria :anaphora :f-underscore :split-sequence

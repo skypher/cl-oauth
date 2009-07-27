@@ -78,7 +78,7 @@
                  :accessor request-token-authorized-p
                  :initform nil)
    (consumer :type consumer-token
-             :reader request-token-consumer
+             :accessor request-token-consumer
              :initarg :consumer
              :documentation "The Consumer that originally requested this
              request token.")))

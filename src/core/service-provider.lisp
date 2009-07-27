@@ -182,8 +182,11 @@
   (remhash (token-key token) *issued-access-tokens*))
 
 (defun validate-access-token-request (&key (access-token-ctor #'make-access-token))
-  (assert (= (length (normalized-parameters)) 8)) ; no user-supplied parameters allowed here, and the
-                                     ; spec forbids duplicate oauth args per section 5.
+  ;; no user-supplied parameters allowed here, and the
+  ;; spec forbids duplicate oauth args per section 5.
+  ;; moreover we don't count the oauth_signature parameter as it isn't
+  ;; part of the normalized parameter list.
+  (assert (= (length (normalized-parameters)) 7))
   (check-version)
   (check-signature)
   (let* ((request-token (get-supplied-request-token :check-verification-code-p t))

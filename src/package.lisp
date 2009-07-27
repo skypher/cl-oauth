@@ -29,6 +29,8 @@
       #:make-request-token
       #:request-token-authorized-p
       #:request-token-callback-uri
+      #:request-token-consumer
+      #:request-token-verification-code
 
       #:access-token
       #:make-access-token

@@ -17,19 +17,27 @@
     (signals error (check-version))))
 
 
-(defmacro with-signed-request ((&key user-parameters signature-override
-                                     (signature-method "HMAC-SHA1")
-                                     (consumer-token (make-consumer-token))
+(defmacro with-signed-request ((&key user-parameters 
+
                                      (version "1.0")
                                      (timestamp (get-universal-time))
                                      (nonce (random most-positive-fixnum))
-                                     token)
+
+                                     signature-override
+                                     (signature-method "HMAC-SHA1")
+
+                                     (consumer-token (make-consumer-token))
+                                     
+                                     token
+                                     verification-code)
                                &body body)
   "Execute BODY in a signed request environment. SIGNATURE-OVERRIDE may be used
 to provide a specific signature (which is supposed to be base64-urlencoded)."
   `(progn
      (register-token ,consumer-token)
      (when ,token
+       (assert (typep ,token '(or request-token access-token)))
+       (setf (request-token-consumer ,token) ,consumer-token)
        (register-token ,token))
      (let* ((*request-object* (random most-positive-fixnum))
             (*request-method* :get)
@@ -41,7 +49,10 @@ to provide a specific signature (which is supposed to be base64-urlencoded)."
                                       (cons "oauth_timestamp" (princ-to-string ,timestamp))
                                       (cons "oauth_nonce" (princ-to-string ,nonce)))
                                 (when ,token
-                                  (list (cons "oauth_token" (token-key ,token))))))
+                                  (list (cons "oauth_token" (token-key ,token))))
+                                (when (and ,token (typep ,token 'request-token))
+                                  (list (cons "oauth_verifier" (or ,verification-code
+                                                                   (request-token-verification-code ,token)))))))
             (signature (or ,signature-override
                            (encode-signature
                              (hmac-sha1 (signature-base-string :parameters (sort-parameters
@@ -75,6 +86,8 @@ to provide a specific signature (which is supposed to be base64-urlencoded)."
 
 
 ;;;; high-level API
+
+;;; phase 1
 (test (validate-request-token-request.oob
         :depends-on (and check-version.valid check-signature.valid))
   (with-signed-request (:user-parameters (("oauth_callback" . "oob")))
@@ -89,4 +102,12 @@ to provide a specific signature (which is supposed to be base64-urlencoded)."
         :depends-on (and check-version.valid check-signature.valid))
   (with-signed-request (:user-parameters (("oauth_callback" . "http://example.com/bar")))
     (is (typep (validate-request-token-request :allow-oob-callback-p nil) 'request-token))))
+
+;;; phase 2
+(test (validate-access-token-request.valid-request-token
+        :depends-on (and check-version.valid check-signature.valid))
+  (let ((request-token (make-request-token)))
+    (setf (request-token-authorized-p request-token) t)
+    (with-signed-request (:token request-token)
+      (is (typep (validate-access-token-request) 'access-token)))))
 
