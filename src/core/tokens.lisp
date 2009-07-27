@@ -66,6 +66,7 @@
 (defclass request-token (token)
   ((callback-uri :type (or null puri:uri)
                  :reader request-token-callback-uri
+                 :initarg :callback-uri
                  :initform nil
                  :documentation "Callback URI for this request token.
                  NIL means oob.")

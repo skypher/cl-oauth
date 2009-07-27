@@ -146,7 +146,7 @@
   (let ((consumer-token (get-supplied-consumer-token)))
     (check-nonce-and-timestamp consumer-token)
     (let* ((callback-uri (get-supplied-callback-uri :allow-oob-callback-p allow-oob-callback-p))
-           (request-token (funcall request-token-ctor :consumer-token consumer-token
+           (request-token (funcall request-token-ctor :consumer consumer-token
                                    :callback-uri (when callback-uri
                                                    (puri:parse-uri callback-uri)))))
       (register-token request-token)
