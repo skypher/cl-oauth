@@ -62,8 +62,17 @@
   (apply #'make-instance 'consumer-token args))
 
 
+(defclass consumer-ref-mixin ()
+  ((consumer :type consumer-token
+             :accessor token-consumer
+             :initarg :consumer
+             :documentation "The Consumer that originally requested this
+             token."))
+  (:documentation "Mixin for classes that refer to a consumer."))
+
+
 ;;; request tokens
-(defclass request-token (token)
+(defclass request-token (token consumer-ref-mixin)
   ((callback-uri :type (or null puri:uri)
                  :reader request-token-callback-uri
                  :initarg :callback-uri
@@ -76,22 +85,15 @@
                       :initform (random-verification-code))
    (authorized-p :type boolean
                  :accessor request-token-authorized-p
-                 :initform nil)
-   (consumer :type consumer-token
-             :accessor request-token-consumer
-             :initarg :consumer
-             :documentation "The Consumer that originally requested this
-             request token.")))
+                 :initform nil)))
 
 (defun make-request-token (&rest args)
   (apply #'make-instance 'request-token args))
 
 
 ;;; access tokens
-(defclass access-token (token)
-  ((consumer :type consumer-token
-             :accessor access-token-consumer
-             :initarg :consumer)))
+(defclass access-token (token consumer-ref-mixin)
+  ())
 
 (defun make-access-token (&rest args)
   (apply #'make-instance 'access-token args))

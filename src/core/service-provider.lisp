@@ -190,7 +190,7 @@
   (check-version)
   (check-signature)
   (let* ((request-token (get-supplied-request-token :check-verification-code-p t))
-         (consumer (request-token-consumer request-token)))
+         (consumer (token-consumer request-token)))
     (check-nonce-and-timestamp consumer)
     (let ((access-token (funcall access-token-ctor :consumer consumer)))
       (register-token access-token)
@@ -228,7 +228,7 @@
   (let ((consumer-token (get-supplied-consumer-token)))
     (check-nonce-and-timestamp consumer-token)
     (let ((access-token (get-supplied-access-token)))
-      (unless (eq consumer-token (access-token-consumer access-token))
+      (unless (eq consumer-token (token-consumer access-token))
         (error "Access token ~S wasn't issued for Consumer ~S" access-token consumer-token))
       t)))
 
