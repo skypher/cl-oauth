@@ -41,14 +41,13 @@
   (let* ((supplied-signature (gethash (request) *signature-cache*))
          (consumer-secret (token-secret (get-consumer-token (parameter "oauth_consumer_key"))))
          ;; TODO: do not bluntly ignore all errors. Factor out into GET-TOKEN
-         (token-secret (token-secret (or (ignore-errors (get-supplied-request-token))
-                                         (ignore-errors (get-supplied-access-token))))))
+         (token-secret (ignore-errors
+                         (token-secret (or (ignore-errors (get-supplied-request-token))
+                                           (ignore-errors (get-supplied-access-token)))))))
     (unless supplied-signature
       (error "This request is not signed"))
     (unless consumer-secret
       (error "Couldn't determine consumer secret"))
-    (unless token-secret
-      (error "Couldn't determine token secret"))
     ;; now calculate the signature and check for match
     (let* ((signature-base-string (signature-base-string))
            (hmac-key (hmac-key consumer-secret token-secret))
