@@ -5,6 +5,8 @@
 
 (in-suite service-provider)
 
+;; TODO tests for check-nonce-and-timestamp
+
 
 (test check-version.valid
   (let ((*get-parameters* '(("oauth_version" . "1.0"))))
@@ -18,6 +20,9 @@
 (defmacro with-signed-request ((&key user-parameters signature-override
                                      (signature-method "HMAC-SHA1")
                                      (consumer-token (make-consumer-token))
+                                     (version "1.0")
+                                     (timestamp (get-universal-time))
+                                     (nonce (random most-positive-fixnum))
                                      token)
                                &body body)
   "Execute BODY in a signed request environment. SIGNATURE-OVERRIDE may be used
@@ -29,9 +34,12 @@ to provide a specific signature (which is supposed to be base64-urlencoded)."
      (let* ((*request-object* (random most-positive-fixnum))
             (*request-method* :get)
             (*request-uri* "/foo")
-            (parameters (append ,user-parameters
-                                (list (cons "oauth_signature_method" ,signature-method)
-                                      (cons "oauth_consumer_key" (token-key ,consumer-token)))
+            (parameters (append ',user-parameters
+                                (list (cons "oauth_version" ,version)
+                                      (cons "oauth_signature_method" ,signature-method)
+                                      (cons "oauth_consumer_key" (token-key ,consumer-token))
+                                      (cons "oauth_timestamp" (princ-to-string ,timestamp))
+                                      (cons "oauth_nonce" (princ-to-string ,nonce)))
                                 (when ,token
                                   (list (cons "oauth_token" (token-key ,token))))))
             (signature (or ,signature-override
@@ -66,10 +74,19 @@ to provide a specific signature (which is supposed to be base64-urlencoded)."
     (finishes (check-signature))))
 
 
-;; high-level SP API
-;(test (validate-request-token-request
-;        :depends-on (and check-version check-signature.valid))
-;  (with-signed-request ()
-;    (validate-request-token-request)))
+;;;; high-level API
+(test (validate-request-token-request.oob
+        :depends-on (and check-version.valid check-signature.valid))
+  (with-signed-request (:user-parameters (("oauth_callback" . "oob")))
+    (is (typep (validate-request-token-request :allow-oob-callback-p t) 'request-token))))
 
+(test (validate-request-token-request.oob-disallowed
+        :depends-on (and check-version.valid check-signature.valid))
+  (with-signed-request (:user-parameters (("oauth_callback" . "oob")))
+    (signals error (validate-request-token-request :allow-oob-callback-p nil))))
+
+(test (validate-request-token-request.callback-uri
+        :depends-on (and check-version.valid check-signature.valid))
+  (with-signed-request (:user-parameters (("oauth_callback" . "http://example.com/bar")))
+    (is (typep (validate-request-token-request :allow-oob-callback-p nil) 'request-token))))
 
