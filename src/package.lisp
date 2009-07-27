@@ -19,6 +19,8 @@
       #:token-key
       #:token-secret
 
+      #:token-consumer
+
       #:register-token
       #:unregister-token
 
@@ -29,7 +31,6 @@
       #:make-request-token
       #:request-token-authorized-p
       #:request-token-callback-uri
-      #:request-token-consumer
       #:request-token-verification-code
 
       #:access-token
@@ -54,5 +55,7 @@
       #:finalize-callback-uri
 
       #:validate-access-token-request
+
+      #:validate-access-token
       )))
 

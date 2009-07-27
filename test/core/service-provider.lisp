@@ -37,7 +37,7 @@ to provide a specific signature (which is supposed to be base64-urlencoded)."
      (register-token ,consumer-token)
      (when ,token
        (assert (typep ,token '(or request-token access-token)))
-       (setf (request-token-consumer ,token) ,consumer-token)
+       (setf (token-consumer ,token) ,consumer-token)
        (register-token ,token))
      (let* ((*request-object* (random most-positive-fixnum))
             (*request-method* :get)
@@ -103,6 +103,7 @@ to provide a specific signature (which is supposed to be base64-urlencoded)."
   (with-signed-request (:user-parameters (("oauth_callback" . "http://example.com/bar")))
     (is (typep (validate-request-token-request :allow-oob-callback-p nil) 'request-token))))
 
+
 ;;; phase 2
 (test (validate-access-token-request.valid-request-token
         :depends-on (and check-version.valid check-signature.valid))
@@ -110,4 +111,14 @@ to provide a specific signature (which is supposed to be base64-urlencoded)."
     (setf (request-token-authorized-p request-token) t)
     (with-signed-request (:token request-token)
       (is (typep (validate-access-token-request) 'access-token)))))
+
+;; TODO more tests, esp. invalid ones.
+
+
+;;; phase 2
+(test (validate-access-token.valid
+        :depends-on (and check-version.valid check-signature.valid))
+  (let ((access-token (make-access-token)))
+    (with-signed-request (:token access-token)
+      (is (eq t (validate-access-token))))))
 
