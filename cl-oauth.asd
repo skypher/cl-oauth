@@ -33,7 +33,7 @@
                                                            (:file "tokens"
                                                                   :depends-on ("signature"))
                                                            (:file "service-provider"
-                                                                  :depends-on ("tokens")))
+                                                                  :depends-on ("tokens" "parameters")))
                                               :depends-on ("package" "util"))
                                      (:module "consumer"
                                               :components ()
@@ -45,6 +45,9 @@
                                                            (:file "parameters"
                                                                   :depends-on ("request-adapter"))
                                                            (:file "signature"
+                                                                  :depends-on ("request-adapter"))
+                                                           (:file "tokens")
+                                                           (:file "service-provider"
                                                                   :depends-on ("request-adapter")))
                                               :depends-on ("package")))))
   :depends-on (:ironclad :cl-base64 :babel
@@ -52,7 +55,8 @@
                :alexandria :anaphora :f-underscore :split-sequence
                :trivial-garbage
                :fiveam
-               :puri :hunchentoot))
+               :puri :hunchentoot)
+  :in-order-to ((asdf:test-op (load-op "cl-oauth"))))
 
 (defmethod perform ((o asdf:test-op) (c (eql (find-system :cl-oauth))))
   (funcall (intern "RUN!" :5am)

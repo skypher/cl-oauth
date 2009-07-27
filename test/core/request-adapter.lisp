@@ -1,7 +1,9 @@
 
 (in-package :oauth-test)
 
+(defvar *request-object* nil)
 (defvar *request-method* :get)
+(defvar *request-uri* "http://host.domain/path")
 (defvar *auth-parameters* nil)
 (defvar *post-parameters* nil)
 (defvar *get-parameters* nil)
@@ -11,10 +13,13 @@
                                              ;; prevent caching.
                                              ;; TODO: use private caches for testing
                                              ;; so we don't interfere with live data.
-                                             (random 1.0))
+                                             (or *request-object* (random most-positive-fixnum)))
                         :request-method-fn (lambda (request)
                                              (declare (ignore request))
                                              *request-method*)
+                        :request-uri-fn (lambda (request)
+                                          (declare (ignore request))
+                                          *request-uri*)
                         :auth-parameters-fn (lambda (request)
                                               (declare (ignore request))
                                               *auth-parameters*)

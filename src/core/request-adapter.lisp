@@ -11,12 +11,14 @@
           *request*
           request
           request-method
+          request-uri
           post-parameters
           get-parameters))
 
 
-#.`(defstruct request-adapter
-     ,@(loop for slotname in '(request-object-fn request-method-fn
+#.`(defstruct request-adapter ; TODO: make this a standard-class, too
+     ,@(loop for slotname in '(request-object-fn
+                               request-method-fn request-uri-fn
                                auth-parameters-fn post-parameters-fn
                                get-parameters-fn)
            collect `(,slotname nil :type (or function null)))
@@ -25,6 +27,7 @@
 
 (defun make-hunchentoot-request-adapter ()
   (make-request-adapter :request-object-fn (lambda () hunchentoot:*request*)
+                        :request-uri-fn #'hunchentoot:request-uri*
                         :request-method-fn #'hunchentoot:request-method*
                         :auth-parameters-fn (lambda (request)
                                               nil) ; TODO
@@ -50,6 +53,11 @@
                               (symbol (intern (symbol-name result) :keyword))
                               (string (intern result :keyword)))))
     (assert (member normalized-result '(:get :post :put :delete :head :trace :options :connect)))
+    result))
+
+(defun request-uri (&optional (request (request)))
+  (let ((result (funcall (request-adapter-request-uri-fn *request-adapter*) request)))
+    (check-type result string)
     result))
 
 ;; TODO: assertions/type checks for the following functions

@@ -1,7 +1,7 @@
 
 (in-package :oauth)
 
-(export '(parameter))
+(export '(parameter sort-parameters normalized-parameters))
 
 ;; the cache allows us to call NORMALIZED-PARAMETERS repeatedly
 ;; without excessive processing penalty.
@@ -13,6 +13,13 @@
   ;; for different parameter list flavors.
   "Per-request cache for signatures in OAuth requests.")
 
+(defun sort-parameters (parameters)
+  "Sort PARAMETERS according to the OAuth spec. This is a destructive operation."
+  (assert (not (assoc "oauth_signature" parameters :test #'equal)))
+  (sort parameters #'string< :key (lambda (x)
+                                    "Sort by key and value."
+                                    (concatenate 'string (princ-to-string (car x))
+                                                 (princ-to-string (cdr x))))))
 
 (defun normalized-parameters (&key remove-duplicates-p)
   "Collect request parameters and remove those excluded by the standard. See 9.1.1.
@@ -28,10 +35,7 @@
               (cdr (assoc "oauth_signature" parameters :test #'equal)))
         (let* ((parameters (remove "oauth_signature" parameters
                                    :key #'car :test #'equal))
-               (sorted-parameters (sort parameters #'string< :key (lambda (x)
-                                                                    "Sort by key and value."
-                                                                    (concatenate 'string (princ-to-string (car x))
-                                                                                 (princ-to-string (cdr x)))))))
+               (sorted-parameters (sort-parameters parameters)))
           (setf (gethash (request) *parameters-cache*) sorted-parameters)
           sorted-parameters
           #+(or) ; disabled for now because it makes caching slightly more complex.

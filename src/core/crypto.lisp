@@ -6,7 +6,7 @@
     (string (babel:string-to-octets x))
     ((simple-array (unsigned-byte 8)) x)))
 
-(defun hmac (s key)
+(defun hmac-sha1 (s key)
   (let* ((s (string-or-octets->octets s))
          (key (string-or-octets->octets key))
          (hmac (ironclad:make-hmac key 'ironclad:sha1)))

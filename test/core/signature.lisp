@@ -23,7 +23,7 @@
                                   &oauth_version=1.0&size=original"))
          (parameters-alist (oauth::query-string->alist parameters))
          (*get-parameters* parameters-alist)
-         (signature-base-string (oauth::signature-base-string uri)))
+         (signature-base-string (signature-base-string :uri uri)))
     (is (equal signature-base-string
                *sample-signature-base-string*))))
 
@@ -31,7 +31,7 @@
 (test hmac-sha1-digest/spec
   (let* ((key "kd94hf93k423kf44&pfkkdhi9sl3r4s00")
          (text *sample-signature-base-string*)
-         (digest (oauth::hmac text key))
+         (digest (hmac-sha1 text key))
          (digest/base64 (cl-base64:usb8-array-to-base64-string digest)))
     (is (equal digest/base64 "tR3+Ty81lMeYAr/Fid0kMTYa/WM="))))
 

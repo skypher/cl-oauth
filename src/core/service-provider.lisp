@@ -23,11 +23,12 @@
 ;;; Consumer management
 (defvar *registered-consumers* (make-hash-table :test #'equalp))
 
-(defun register-consumer (&optional (token (make-consumer-token)))
-  "Register a consumer. TOKEN-ARGS will be relayed to the token constructor.
-  Returns the consumer's token."
+(defmethod register-token ((token consumer-token))
   (setf (gethash (token-key token) *registered-consumers*) token)
   token)
+
+(defmethod unregister-token ((token consumer-token))
+  (remhash (token-key token) *registered-consumers*))
 
 (defun get-consumer-token (key)
   (gethash key *registered-consumers*))
@@ -37,10 +38,24 @@
 (defun check-signature ()
   (unless (equalp (parameter "oauth_signature_method") "HMAC-SHA1")
     (error "Signature method not passed or different from HMAC-SHA1"))
-  (let ((signature (gethash (request) *signature-cache*)))
-    (unless signature
+  (let* ((supplied-signature (gethash (request) *signature-cache*))
+         (consumer-secret (token-secret (get-consumer-token (parameter "oauth_consumer_key"))))
+         ;; TODO: do not bluntly ignore all errors. Factor out into GET-TOKEN
+         (token-secret (token-secret (or (ignore-errors (get-supplied-request-token))
+                                         (ignore-errors (get-supplied-access-token))))))
+    (unless supplied-signature
       (error "This request is not signed"))
-    ;; TODO
+    (unless consumer-secret
+      (error "Couldn't determine consumer secret"))
+    (unless token-secret
+      (error "Couldn't determine token secret"))
+    ;; now calculate the signature and check for match
+    (let* ((signature-base-string (signature-base-string))
+           (hmac-key (hmac-key consumer-secret token-secret))
+           (signature (hmac-sha1 signature-base-string hmac-key))
+           (encoded-signature (encode-signature signature)))
+      (unless (equal encoded-signature supplied-signature)
+        (error "Invalid signature")))
     t))
 
 
@@ -99,6 +114,13 @@
 ;;; request token management
 (defvar *issued-request-tokens* (make-hash-table :test #'equalp))
 
+(defmethod register-token ((token request-token))
+  ;; TODO: already registered?
+  (setf (gethash (token-key token) *issued-request-tokens*) token))
+
+(defmethod unregister-token ((token request-token))
+  (remhash (token-key token) *issued-request-tokens*))
+
 (defun invalidate-request-token (request-token)
   (remhash (token-key request-token) *issued-request-tokens*))
 
@@ -128,7 +150,7 @@
            (request-token (funcall request-token-ctor :consumer-token consumer-token
                                    :callback-uri (when callback-uri
                                                    (puri:parse-uri callback-uri)))))
-      (setf (gethash (token-key request-token) *issued-request-tokens*) request-token)
+      (register-token request-token)
       request-token)))
 
 (defun get-supplied-request-token (&key check-verification-code-p)
@@ -154,6 +176,12 @@
 ;;; access token management
 (defvar *issued-access-tokens* (make-hash-table :test #'equalp))
 
+(defmethod register-token ((token access-token))
+  (setf (gethash (token-key token) *issued-access-tokens*) token))
+
+(defmethod unregister-token ((token request-token))
+  (remhash (token-key token) *issued-access-tokens*))
+
 (defun validate-access-token-request (&key (access-token-ctor #'make-access-token))
   (assert (= (length (normalized-parameters)) 8)) ; no user-supplied parameters allowed here, and the
                                      ; spec forbids duplicate oauth args per section 5.
@@ -163,7 +191,7 @@
          (consumer (request-token-consumer request-token)))
     (check-nonce-and-timestamp consumer)
     (let ((access-token (funcall access-token-ctor :consumer consumer)))
-      (setf (gethash (token-key access-token) *issued-access-tokens*) access-token)
+      (register-token access-token)
       (prog1
           access-token
         (invalidate-request-token request-token)))))

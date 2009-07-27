@@ -33,9 +33,13 @@ TODO (apart from spec things not implemented yet):
 
   * incorporate test cases from http://wiki.oauth.net/TestCases
 
-  * abstract storage, can't get far with volatile memory
+  * abstract token storage, can't get far with volatile memory
+    FETCH-TOKEN/STORE-TOKEN
 
   * better support for Consumers (examples, convenience interface)
 
-  * abstract *issued-{request,access,consumer}-tokens* hash table access
+  * SIGNATURE-BASE-STRING must accept the list of parameters as argument
+    for the Consumer
+
+  * OAUTH:DEFINE-CONDITION, OAUTH:SIGNAL
 
