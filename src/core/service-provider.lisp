@@ -178,7 +178,7 @@
 (defmethod register-token ((token access-token))
   (setf (gethash (token-key token) *issued-access-tokens*) token))
 
-(defmethod unregister-token ((token request-token))
+(defmethod unregister-token ((token access-token))
   (remhash (token-key token) *issued-access-tokens*))
 
 (defun validate-access-token-request (&key (access-token-ctor #'make-access-token))
