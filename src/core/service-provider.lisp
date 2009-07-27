@@ -61,10 +61,10 @@
 ;;; nonce and timestamp checking
 (defun check-nonce-and-timestamp (consumer-token)
   ;; STUB
-  (let ((timestamp (parameter "oauth_timestamp"))
+  (let ((timestamp (ignore-errors (parse-integer (parameter "oauth_timestamp"))))
         (nonce (parameter "oauth_nonce")))
     (unless timestamp
-      (error "Timestamp is missing"))
+      (error "Timestamp missing or invalid"))
     (unless nonce
       (error "Nonce is missing"))
     (unless (>= timestamp (consumer-token-last-timestamp consumer-token))
