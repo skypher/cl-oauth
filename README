@@ -41,5 +41,3 @@ TODO (apart from spec things not implemented yet):
   * SIGNATURE-BASE-STRING must accept the list of parameters as argument
     for the Consumer
 
-  * OAUTH:DEFINE-CONDITION, OAUTH:SIGNAL
-

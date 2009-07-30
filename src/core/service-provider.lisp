@@ -6,6 +6,38 @@
 ;;;; TODO: need to store application-specific data somewhere.
 
 
+;;; async responses
+(define-condition http-error (error)
+  ((status-code :reader http-error-status-code
+                :initarg :status-code)
+   (reason-phrase :reader http-error-reason-phrase
+                  :initarg :reason-phrase)))
+
+(define-condition bad-request (http-error)
+  () (:default-initargs :status-code 400 :reason-phrase "Bad Request"))
+
+(define-condition unauthorized (http-error)
+  () (:default-initargs :status-code 401 :reason-phrase "Unauthorized"))
+
+(defun raise-error (type reason-phrase-fmt &rest reason-phrase-args)
+  (let ((reason-phrase (apply #'format nil reason-phrase-fmt reason-phrase-args)))
+    (error type :reason-phrase reason-phrase)))
+
+;; TODO what follows is Hunchentoot-specific
+(pushnew 400 hunchentoot:*approved-return-codes*)
+(pushnew 401 hunchentoot:*approved-return-codes*)
+
+(defun default-error-handler (condition)
+  "Default error handler for conditions of type HTTP-ERROR."
+  (check-type condition http-error)
+  (let ((status-code (http-error-status-code condition))
+        (reason-phrase (http-error-reason-phrase condition)))
+    (setf (hunchentoot:return-code*) status-code)
+    (setf (hunchentoot:content-type*) "text/plain")
+    (hunchentoot:abort-request-handler
+      (format nil "~D ~A" status-code reason-phrase))))
+
+
 (defun finalize-callback-uri (request-token)
   "Prepares the callback URI of REQUEST-TOKEN for
   redirection."
@@ -33,42 +65,50 @@
 (defun get-consumer-token (key)
   (gethash key *registered-consumers*))
 
+(defmacro ignore-oauth-errors (&body body)
+  `(handler-case (progn ,@body)
+     (http-error (condition) (values nil condition))))
 
 ;;; signature checking
 (defun check-signature ()
   (unless (equalp (parameter "oauth_signature_method") "HMAC-SHA1")
-    (error "Signature method not passed or different from HMAC-SHA1"))
+    (raise-error 'bad-request "Signature method not passed or different from HMAC-SHA1"))
   (let* ((supplied-signature (gethash (request) *signature-cache*))
-         (consumer-secret (token-secret (get-consumer-token (parameter "oauth_consumer_key"))))
          ;; TODO: do not bluntly ignore all errors. Factor out into GET-TOKEN
+         (consumer-secret (ignore-errors
+                            (token-secret
+                              (get-consumer-token (parameter "oauth_consumer_key")))))
          (token-secret (ignore-errors
-                         (token-secret (or (ignore-errors (get-supplied-request-token))
-                                           (ignore-errors (get-supplied-access-token)))))))
+                         (token-secret (or (ignore-oauth-errors (get-supplied-request-token))
+                                           (ignore-oauth-errors (get-supplied-access-token)))))))
     (unless supplied-signature
-      (error "This request is not signed"))
+      (raise-error 'bad-request "This request is not signed"))
     (unless consumer-secret
-      (error "Couldn't determine consumer secret"))
+      (raise-error 'unauthorized "Invalid consumer"))
     ;; now calculate the signature and check for match
     (let* ((signature-base-string (signature-base-string))
            (hmac-key (hmac-key consumer-secret token-secret))
            (signature (hmac-sha1 signature-base-string hmac-key))
-           (encoded-signature (encode-signature signature)))
+           (encoded-signature (encode-signature signature nil)))
       (unless (equal encoded-signature supplied-signature)
-        (error "Invalid signature")))
+        (format t "calculated: ~S / supplied: ~S~%" encoded-signature supplied-signature)
+        (raise-error 'unauthorized "Invalid signature")))
     t))
 
 
 ;;; nonce and timestamp checking
 (defun check-nonce-and-timestamp (consumer-token)
-  ;; STUB
+  ;; TODO: nonce checking
+  (unless (parameter "oauth_timestamp")
+      (raise-error 'bad-request "Missing Timestamp"))
   (let ((timestamp (ignore-errors (parse-integer (parameter "oauth_timestamp"))))
         (nonce (parameter "oauth_nonce")))
     (unless timestamp
-      (error "Timestamp missing or invalid"))
+      (raise-error 'unauthorized "Malformed Timestamp"))
     (unless nonce
-      (error "Nonce is missing"))
+      (raise-error 'bad-request "Missing nonce"))
     (unless (>= timestamp (consumer-token-last-timestamp consumer-token))
-      (error "Invalid timestamp"))
+      (raise-error 'unauthorized "Invalid timestamp"))
     t))
 
 
@@ -76,7 +116,7 @@
 (defun check-version ()
   (let ((version (parameter "oauth_version")))
     (unless (member version '("1.0" nil) :test #'equalp)
-      (cerror "Not prepared to handle OAuth version other than 1.0" version))
+      (raise-error 'bad-request "Not prepared to handle OAuth version other than 1.0" version))
     t))
 
 
@@ -84,7 +124,7 @@
 (defun check-verification-code ()
   (unless (equal (parameter "oauth_verifier")
                  (request-token-verification-code (get-supplied-request-token)))
-    (error "Invalid request token verification code"))
+    (raise-error 'unauthorized "Invalid verification code"))
   t)
 
 
@@ -92,20 +132,20 @@
 (defun get-supplied-consumer-token ()
   (let ((consumer-key (parameter "oauth_consumer_key")))
     (unless consumer-key
-      (error "Consumer key not supplied"))
+      (raise-error 'bad-request "Consumer key not supplied"))
     (let ((consumer-token (get-consumer-token consumer-key)))
       (unless consumer-token
-        (error "Can't identify Consumer"))
+        (raise-error 'unauthorized "Can't identify Consumer"))
       consumer-token)))
 
 
-(defun get-supplied-callback-uri (&key allow-oob-callback-p)
+(defun get-supplied-callback-uri (&key allow-oob-callback-p allow-none)
   (let ((callback (parameter "oauth_callback")))
     (cond
-      ((not callback)
-       (error "No callback supplied"))
+      ((and (not allow-none) (not callback))
+       (raise-error 'bad-request "No callback supplied"))
       ((and (not allow-oob-callback-p) (equal callback "oob"))
-       (error "Not prepared for an OOB callback setup!"))
+       (raise-error 'bad-request "Not prepared for an OOB callback setup!"))
       (t
        callback))))
 
@@ -136,16 +176,13 @@
   
   Returns the supplied Consumer callback (a PURI:URI) or NIL if
   the callback is supposed to be transferred oob. [6.1.1]"
-  ;; TODO: in case of error set appropriate 400/401 return code to
-  ;; simplify debugging on the consumer side.
-  ;;
-  ;; TODO: raise specific errors instead of simple errors
-  (assert (>= (length (normalized-parameters)) 6))
+  (assert (>= (length (normalized-parameters)) 5)) ; cb is only mandatory in 1.0a
   (check-version)
   (check-signature)
   (let ((consumer-token (get-supplied-consumer-token)))
     (check-nonce-and-timestamp consumer-token)
-    (let* ((callback-uri (get-supplied-callback-uri :allow-oob-callback-p allow-oob-callback-p))
+    (let* ((callback-uri (get-supplied-callback-uri :allow-oob-callback-p allow-oob-callback-p
+                                                    :allow-none t))
            (request-token (funcall request-token-ctor :consumer consumer-token
                                    :callback-uri (when callback-uri
                                                    (puri:parse-uri callback-uri)))))
@@ -156,16 +193,15 @@
   "Utility function that extracts the Consumer-supplied request token
   from a list of normalized parameters. Guards against non-existing
   and unknown tokens. Returns the request token on success."
-  ;; TODO: raise specific errors
   ;; TODO: check whether the supplied token matches the Consumer key
   (let ((request-token-key (parameter "oauth_token")))
     ;; check if the Consumer supplied a request token
     (unless request-token-key
-      (error "No request token identifier (oauth_token) supplied."))
+      (raise-error 'bad-request "Missing request token"))
     ;; check if the supplied request token is known to us
     (let ((request-token (gethash request-token-key *issued-request-tokens*)))
       (unless request-token
-        (error "Invalid request token."))
+        (raise-error 'unauthorized "Invalid request token"))
       (when check-verification-code-p
         (check-verification-code))
       ;; everything's looking good
@@ -210,15 +246,14 @@
   "Utility function that extracts the Consumer-supplied request token
   from a list of normalized parameters. Guards against non-existing
   and unknown tokens. Returns the request token on success."
-  ;; TODO: raise specific errors
   ;; TODO: check whether the supplied token matches the Consumer key
   (let ((access-token-key (parameter "oauth_token")))
     (unless access-token-key
-      (error "No access token identifier (oauth_token) supplied."))
+      (raise-error 'bad-request "Missing access token"))
     ;; check if the supplied access token is known to us
     (let ((access-token (gethash access-token-key *issued-access-tokens*)))
       (unless access-token
-        (error "Invalid access token."))
+        (raise-error 'unauthorized "Invalid access token"))
       access-token)))
 
 (defun validate-access-token ()
@@ -229,6 +264,6 @@
     (check-nonce-and-timestamp consumer-token)
     (let ((access-token (get-supplied-access-token)))
       (unless (eq consumer-token (token-consumer access-token))
-        (error "Access token ~S wasn't issued for Consumer ~S" access-token consumer-token))
+        (raise-error 'unauthorized "Access token ~S wasn't issued for Consumer ~S" access-token consumer-token))
       t)))
 

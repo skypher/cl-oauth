@@ -14,6 +14,10 @@
     (:import-from #:alexandria #:with-unique-names #:curry #:rcurry)
     (:import-from #:split-sequence #:split-sequence)
     (:export
+      #:http-error
+      #:raise-error
+      #:default-error-handler
+
       ;;; tokens
       #:token
       #:token-key
