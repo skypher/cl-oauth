@@ -58,7 +58,8 @@ to provide a specific signature (which is supposed to be base64-urlencoded)."
                              (hmac-sha1 (signature-base-string :parameters (sort-parameters
                                                                              (copy-alist parameters)))
                                         (hmac-key (token-secret ,consumer-token)
-                                                  (when ,token (token-secret ,token)))))))
+                                                  (when ,token (token-secret ,token))))
+                             t)))
             (*get-parameters* (cons (cons "oauth_signature" signature) parameters)))
        (setf (gethash (request) oauth::*signature-cache*) signature)
        ,@body)
@@ -112,10 +113,10 @@ to provide a specific signature (which is supposed to be base64-urlencoded)."
     (with-signed-request (:token request-token)
       (is (typep (validate-access-token-request) 'access-token)))))
 
-;; TODO more tests, esp. invalid ones.
+;; TODO more tests, esp. for invalid requests.
 
 
-;;; phase 2
+;;; phase 3
 (test (validate-access-token.valid
         :depends-on (and check-version.valid check-signature.valid))
   (let ((access-token (make-access-token)))

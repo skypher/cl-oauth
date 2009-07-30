@@ -61,5 +61,7 @@
       #:validate-access-token-request
 
       #:validate-access-token
+
+      #:make-response
       )))
 

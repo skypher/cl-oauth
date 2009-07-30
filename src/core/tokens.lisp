@@ -42,7 +42,7 @@
     (loop for slotname in (mapcar #'c2mop:slot-definition-name
                                   (c2mop:class-slots (class-of obj)))
           do (progn
-               (terpri)
+               (terpri stream)
                (write "  " :stream stream :escape nil)
                (prin1 (intern (symbol-name slotname) :keyword) stream)
                (write " " :stream stream :escape nil)

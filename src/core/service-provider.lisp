@@ -163,12 +163,21 @@
 (defun invalidate-request-token (request-token)
   (remhash (token-key request-token) *issued-request-tokens*))
 
+(defun make-response (alist)
+  "[5.3]"
+  (alist->query-string
+    (mapcar (lambda (cons)
+              (cons (url-encode (car cons))
+                    (url-encode (cdr cons))))
+            alist)
+    :include-leading-ampersand nil))
+
 (defun request-token-response (request-token &rest additional-parameters)
   (declare (ignore additional-parameters)) ; TODO not supported yet
-  (url-encode (alist->query-string
-                `(("oauth_token" . ,(token-key request-token))
-                  ("oauth_token_secret" . ,(token-secret request-token))
-                  ("oauth_callback_confirmed" . "true")))))
+  (make-response
+    `(("oauth_token" . ,(token-key request-token))
+      ("oauth_token_secret" . ,(token-secret request-token))
+      ("oauth_callback_confirmed" . "true"))))
 
 (defun validate-request-token-request (&key (request-token-ctor #'make-request-token)
                                             allow-oob-callback-p)

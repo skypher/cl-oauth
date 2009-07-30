@@ -16,8 +16,10 @@
   "9.2; TOKEN-SECRET may be NIL."
   (concatenate 'string consumer-secret "&" (or token-secret "")))
 
-(defun encode-signature (octets)
+(defun encode-signature (octets url-encode-p)
   "9.2.1"
-  (url-encode
-    (cl-base64:usb8-array-to-base64-string octets)))
+  (let ((base64 (cl-base64:usb8-array-to-base64-string octets)))
+    (if url-encode-p
+      (url-encode base64)
+      base64)))
 
