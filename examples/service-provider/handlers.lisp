@@ -1,3 +1,4 @@
+(asdf:oos 'asdf:load-op 'cl-who)
 
 (in-package :oauth)
 
@@ -9,7 +10,9 @@
   (loop for name being the hash-keys of *handlers*
         collect name))
 
-(defmacro define-handler ((name &key (prefix "/")) &body body)
+(defvar *debug-on-error* nil)
+
+(defmacro define-handler ((name &key (prefix "/") (http-error-handler #'default-error-handler)) &body body)
   "Remove dispatchers associated with the symbol NAME  from the dispatch
   table, then add a newly created prefix dispatcher to the dispatch table.
 
@@ -21,15 +24,23 @@
   (let* ((handler-name (intern (concatenate 'string (symbol-name name) "-HANDLER")))
          (uri-prefix (concatenate 'string prefix (string-downcase (symbol-name name)))))
     (with-unique-names (old-dispatcher dispatcher)
-      `(let ((,old-dispatcher (gethash ',name *handlers*))
-             (,dispatcher (create-prefix-dispatcher ,uri-prefix ',handler-name)))
-         (defun ,handler-name () ,@body)
-         (setf *dispatch-table* (cons ,dispatcher (remove ,old-dispatcher *dispatch-table*))
-               (gethash ',name *handlers*) ,dispatcher)))))
+      (multiple-value-bind (body declarations) (alexandria:parse-body body)
+        `(let ((,old-dispatcher (gethash ',name *handlers*))
+               (,dispatcher (create-prefix-dispatcher ,uri-prefix ',handler-name)))
+           (defun ,handler-name ()
+             ,@declarations
+             (handler-bind ((http-error ,http-error-handler)
+                            (error (lambda (c)
+                                     (if *debug-on-error*
+                                       (invoke-debugger c)
+                                       (format t "error: ~A~%" c)))))
+               ,@body))
+           (setf *dispatch-table* (cons ,dispatcher (remove ,old-dispatcher *dispatch-table*))
+                 (gethash ',name *handlers*) ,dispatcher))))))
 
 (define-handler (register-consumer)
   "Register a new consumer."
-  (princ-to-string (register-consumer)))
+  (cl-who:escape-string (princ-to-string (register-token (make-consumer-token)))))
 
 (define-handler (get-request-token)
   "Hand out request tokens."
