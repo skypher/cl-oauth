@@ -18,8 +18,10 @@
 
 #.`(defstruct request-adapter ; TODO: make this a standard-class, too
      ,@(loop for slotname in '(request-object-fn
-                               request-method-fn request-uri-fn
-                               auth-parameters-fn post-parameters-fn
+                               request-method-fn
+                               request-uri-fn
+                               auth-parameters-fn
+                               post-parameters-fn
                                get-parameters-fn)
            collect `(,slotname nil :type (or function null)))
      (:documentation "An adapter for server-specific parts of OAuth.
@@ -27,7 +29,17 @@
 
 (defun make-hunchentoot-request-adapter ()
   (make-request-adapter :request-object-fn (lambda () hunchentoot:*request*)
-                        :request-uri-fn #'hunchentoot:request-uri*
+                        :request-uri-fn (lambda (request)
+                                          (let* ((http-host (split-sequence #\: (hunchentoot:host request)))
+                                                 (hostname (first http-host))
+                                                 (port (second http-host)))
+                                            (make-instance 'puri:uri
+                                                           :scheme (etypecase hunchentoot:*acceptor*
+                                                                     (hunchentoot:acceptor :http)
+                                                                     (hunchentoot:ssl-acceptor :https))
+                                                           :host hostname
+                                                           :port port
+                                                           :path (hunchentoot:script-name* request))))
                         :request-method-fn #'hunchentoot:request-method*
                         :auth-parameters-fn (lambda (request)
                                               nil) ; TODO
@@ -56,8 +68,12 @@
     result))
 
 (defun request-uri (&optional (request (request)))
+  "Return the request uri including protocol, host, port
+and path. Other parts like the query string are optional and
+will be ignored. The result type is (or string puri:uri)."
+  ;; TODO: cache this
   (let ((result (funcall (request-adapter-request-uri-fn *request-adapter*) request)))
-    (check-type result string)
+    (check-type result (or string puri:uri))
     result))
 
 ;; TODO: assertions/type checks for the following functions
