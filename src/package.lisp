@@ -14,9 +14,15 @@
     (:import-from #:alexandria #:with-unique-names #:curry #:rcurry)
     (:import-from #:split-sequence #:split-sequence)
     (:export
+      #:protocol-version
+
+      ;;; error handling
       #:http-error
+      #:bad-request
+      #:unauthorized
       #:raise-error
       #:default-error-handler
+      #:protocol-assert
 
       ;;; tokens
       #:token

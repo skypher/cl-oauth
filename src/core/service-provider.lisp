@@ -1,41 +1,11 @@
 
 (in-package :oauth)
 
+(defvar *protocol-version* :1.0)
+
 ;;;; Service provider infrastructure
 
 ;;;; TODO: need to store application-specific data somewhere.
-
-
-;;; async responses
-(define-condition http-error (error)
-  ((status-code :reader http-error-status-code
-                :initarg :status-code)
-   (reason-phrase :reader http-error-reason-phrase
-                  :initarg :reason-phrase)))
-
-(define-condition bad-request (http-error)
-  () (:default-initargs :status-code 400 :reason-phrase "Bad Request"))
-
-(define-condition unauthorized (http-error)
-  () (:default-initargs :status-code 401 :reason-phrase "Unauthorized"))
-
-(defun raise-error (type reason-phrase-fmt &rest reason-phrase-args)
-  (let ((reason-phrase (apply #'format nil reason-phrase-fmt reason-phrase-args)))
-    (error type :reason-phrase reason-phrase)))
-
-;; TODO what follows is Hunchentoot-specific
-(pushnew 400 hunchentoot:*approved-return-codes*)
-(pushnew 401 hunchentoot:*approved-return-codes*)
-
-(defun default-error-handler (condition)
-  "Default error handler for conditions of type HTTP-ERROR."
-  (check-type condition http-error)
-  (let ((status-code (http-error-status-code condition))
-        (reason-phrase (http-error-reason-phrase condition)))
-    (setf (hunchentoot:return-code*) status-code)
-    (setf (hunchentoot:content-type*) "text/plain")
-    (hunchentoot:abort-request-handler
-      (format nil "~D ~A" status-code reason-phrase))))
 
 
 (defun finalize-callback-uri (request-token)
@@ -139,7 +109,8 @@
       consumer-token)))
 
 
-(defun get-supplied-callback-uri (&key allow-oob-callback-p allow-none)
+(defun get-supplied-callback-uri (&key allow-oob-callback-p
+                                       (allow-none (eq *protocol-version* :1.0)))
   (let ((callback (parameter "oauth_callback")))
     (cond
       ((and (not allow-none) (not callback))
@@ -185,7 +156,11 @@
   
   Returns the supplied Consumer callback (a PURI:URI) or NIL if
   the callback is supposed to be transferred oob. [6.1.1]"
-  (assert (>= (length (normalized-parameters)) 5)) ; cb is only mandatory in 1.0a
+  (protocol-assert (>= (length (normalized-parameters))
+                       (case *protocol-version*
+                         ;; cb was introduced in 1.0a
+                         (1.0 4)
+                         (t 6 5))))
   (check-version)
   (check-signature)
   (let ((consumer-token (get-supplied-consumer-token)))
@@ -231,10 +206,14 @@
   ;; spec forbids duplicate oauth args per section 5.
   ;; moreover we don't count the oauth_signature parameter as it isn't
   ;; part of the normalized parameter list.
-  (assert (= (length (normalized-parameters)) 7))
+  (protocol-assert (multiple-value-call #'between (length (normalized-parameters))
+             (case *protocol-version*
+               (1.0 (values 5 6))
+               (t 6 (values 6 7)))))
   (check-version)
   (check-signature)
-  (let* ((request-token (get-supplied-request-token :check-verification-code-p t))
+  (let* ((request-token (get-supplied-request-token
+                          :check-verification-code-p (not (eq *protocol-version* :1.0))))
          (consumer (token-consumer request-token)))
     (check-nonce-and-timestamp consumer)
     (let ((access-token (funcall access-token-ctor :consumer consumer)))
@@ -266,7 +245,7 @@
       access-token)))
 
 (defun validate-access-token ()
-  (assert (>= (length (normalized-parameters)) 6))
+  (protocol-assert (>= (length (normalized-parameters)) 6))
   (check-version)
   (check-signature)
   (let ((consumer-token (get-supplied-consumer-token)))

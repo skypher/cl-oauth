@@ -49,23 +49,34 @@
 
 (define-handler (get-user-authorization)
   "Let the user authorize the access token. [6.2.1]."
-  (assert (eq (request-method) :get)) ; [6.2.1]
+  (protocol-assert (eq (request-method) :get)) ; [6.2.1]
   (let ((request-token (get-supplied-request-token)))
     (when t ; XXX obtain user permission here
       (setf (request-token-authorized-p request-token) t)
       ;; now notify the Consumer that the request token has been authorized.
       (let ((callback-uri (request-token-callback-uri request-token)))
-        (assert callback-uri)
-        (hunchentoot:redirect (princ-to-string (finalize-callback-uri request-token)))))
+        (cond
+          ((eq *protocol-version* :1.0)
+           ;; callback uri is optional in 1.0; you might want to employ
+           ;; some other means to construct it.
+           (hunchentoot:abort-request-handler "Authorization complete."))
+          (t
+           (protocol-assert callback-uri)
+           (hunchentoot:redirect (princ-to-string (finalize-callback-uri request-token)))))))
+    ;; only reached when authorization failed
+
     ;; NOTE: optionally notify the Consumer if the user refused authorization.
     ))
 
 (define-handler (get-access-token)
   "Get an access token from a previously issued and authorized request token."
   (let ((access-token (validate-access-token-request)))
-    access-token))
+    (princ-to-string access-token)))
 
+(define-handler (protected-resource)
+  (validate-access-token)
+  "All your base are belong to us.")
 
 ;; TODO: automatically define a handler that shows a page documenting
-;; the other handlers. See section 4.2.
+;; the location of the other handlers. See section 4.2.
 

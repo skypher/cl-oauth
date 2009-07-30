@@ -27,13 +27,16 @@
                                      (:module "core"
                                               :components ((:file "crypto")
                                                            (:file "request-adapter")
+                                                           (:file "error-handling"
+                                                                  :depends-on ("request-adapter"))
                                                            (:file "parameters"
                                                                   :depends-on ("request-adapter"))
                                                            (:file "signature")
                                                            (:file "tokens"
                                                                   :depends-on ("signature"))
                                                            (:file "service-provider"
-                                                                  :depends-on ("tokens" "parameters")))
+                                                                  :depends-on ("tokens" "parameters"
+                                                                               "error-handling")))
                                               :depends-on ("package" "util"))
                                      (:module "consumer"
                                               :components ()

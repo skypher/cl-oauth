@@ -10,12 +10,11 @@ refer to this document.
 Not supported at this time:
 
   * parameters from Auth header (needs some parsing) [5.4]
+    in principle a MUST, but as SP you get to decide ;)
 
-  * Additional parameters in server response [6.1.2]. Trivial.
+  * Additional parameters in server response [6.1.2]. Optional and trivial.
 
-  * Timestamp checking [8]. Trivial.
-
-  * Nonce checking [8, 9].
+  * Nonce checking [9], a SHOULD.
 
   * signatures different from HMAC-SHA1 (it's easy to use other
     digests and MACs via Ironclad but RSA needs to have padding
@@ -36,8 +35,14 @@ TODO (apart from spec things not implemented yet):
   * abstract token storage, can't get far with volatile memory
     FETCH-TOKEN/STORE-TOKEN
 
-  * better support for Consumers (examples, convenience interface)
+  * better handling of different protocol versions; in particular
+    we should support serving both 1.0 and 1.0a clients.
 
-  * SIGNATURE-BASE-STRING must accept the list of parameters as argument
-    for the Consumer
+
+  * better support for Consumers
+
+    * examples, convenience interface
+
+    * SIGNATURE-BASE-STRING must accept the list of parameters as argument
+      for the Consumer
 

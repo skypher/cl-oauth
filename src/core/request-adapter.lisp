@@ -12,14 +12,17 @@
           request
           request-method
           request-uri
+          abort-request
+          auth-parameters
           post-parameters
-          get-parameters))
+          get-parameters)) ; TODO move to package.lisp
 
 
 #.`(defstruct request-adapter ; TODO: make this a standard-class, too
      ,@(loop for slotname in '(request-object-fn
                                request-method-fn
                                request-uri-fn
+                               abort-request-fn
                                auth-parameters-fn
                                post-parameters-fn
                                get-parameters-fn)
@@ -41,6 +44,7 @@
                                                            :port port
                                                            :path (hunchentoot:script-name* request))))
                         :request-method-fn #'hunchentoot:request-method*
+                        :abort-request-fn #'hunchentoot:abort-request-handler
                         :auth-parameters-fn (lambda (request)
                                               nil) ; TODO
                         :post-parameters-fn #'hunchentoot:post-parameters*
@@ -86,4 +90,9 @@ will be ignored. The result type is (or string puri:uri)."
 
 (defun get-parameters (&optional (request (request)))
   (funcall (request-adapter-get-parameters-fn *request-adapter*) request))
+
+
+(defun abort-request (result)
+  "Return the string RESULT immediately from the request handler."
+  (funcall (request-adapter-abort-request-fn *request-adapter*) result))
 

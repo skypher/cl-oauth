@@ -15,3 +15,6 @@
                             (list (car x) (cdr x)))
                           alist)))
 
+(defun between (what lower upper)
+  (and (>= what lower) (<= what upper)))
+
