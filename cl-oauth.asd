@@ -34,13 +34,13 @@
                                                            (:file "signature")
                                                            (:file "tokens"
                                                                   :depends-on ("signature"))
+                                                           (:file "consumer"
+                                                                  :depends-on ("tokens" "parameters"
+                                                                               "error-handling"))
                                                            (:file "service-provider"
                                                                   :depends-on ("tokens" "parameters"
                                                                                "error-handling")))
-                                              :depends-on ("package" "util"))
-                                     (:module "consumer"
-                                              :components ()
-                                              :depends-on ("package" "core"))))
+                                              :depends-on ("package" "util"))))
                (:module "test"
                         :components ((:file "package")
                                      (:module "core"
@@ -59,6 +59,7 @@
                :alexandria :anaphora :f-underscore :split-sequence
                :trivial-garbage
                :fiveam
+               :drakma
                :puri :hunchentoot)
   :in-order-to ((asdf:test-op (load-op "cl-oauth"))))
 

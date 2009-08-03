@@ -12,9 +12,9 @@
                                                   :include-leading-ampersand nil))))
 
 (declaim (notinline hmac-key)) ; we want to trace this when debugging. 
-(defun hmac-key (consumer-secret token-secret)
-  "9.2; TOKEN-SECRET may be NIL."
-  (concatenate 'string consumer-secret "&" (or token-secret "")))
+(defun hmac-key (consumer-secret &optional (token-secret ""))
+  "9.2"
+  (concatenate 'string consumer-secret "&" token-secret))
 
 (defun encode-signature (octets url-encode-p)
   "9.2.1"
