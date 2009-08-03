@@ -10,6 +10,7 @@
         1))))
 
 (defun query-string->alist (query-string)
+  ;; TODO: doesn't handle leading ?
   (let* ((kv-pairs (remove "" (split-sequence #\& query-string) :test #'equal))
          (alist (mapcar (lambda (kv-pair)
                           (let ((kv (split-sequence #\= kv-pair)))
