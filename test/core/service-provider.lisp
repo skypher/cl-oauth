@@ -59,7 +59,7 @@ to provide a specific signature (which is supposed to be base64-urlencoded)."
                                                                              (copy-alist parameters)))
                                         (hmac-key (token-secret ,consumer-token)
                                                   (when ,token (token-secret ,token))))
-                             t)))
+                             nil)))
             (*get-parameters* (cons (cons "oauth_signature" signature) parameters)))
        (setf (gethash (request) oauth::*signature-cache*) signature)
        ,@body)
