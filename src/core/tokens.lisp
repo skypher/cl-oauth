@@ -32,7 +32,13 @@
    (secret :type string
            :reader token-secret
            :initarg :secret
-           :initform (random-secret))))
+           :initform (random-secret))
+   (user-data :type list
+              :accessor token-user-data
+              :initarg :user-data
+              :initform nil
+              :documentation "Application-specific data associated
+              with this token; an alist.")))
 
 (defmethod print-object ((obj token) stream)
   "Faking STRUCT-like output. It would probably be better to use

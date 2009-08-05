@@ -13,6 +13,7 @@ Not supported at this time:
     in principle a MUST, but as SP you get to decide ;)
 
   * Additional parameters in server response [6.1.2]. Optional and trivial.
+    Additional parameters in request (store in tokens).
 
   * Nonce checking [9], a SHOULD.
 
@@ -36,7 +37,8 @@ TODO (apart from spec things not implemented yet):
     FETCH-TOKEN/STORE-TOKEN
 
   * better handling of different protocol versions; in particular
-    we should support serving both 1.0 and 1.0a clients.
+    we should support serving both 1.0 and 1.0a clients (and requesting
+    stuff from 1.0 and 1.0a servers too, of course).
 
 
   * better support for Consumers
