@@ -4,8 +4,8 @@
 	bare = false
 	logallrefupdates = true
 [remote "gitorious"]
-	fetch = +refs/heads/*:refs/remotes/origin/*
 	url = git@gitorious.org:cl-oauth/cl-oauth.git 
-[branch "github"]
+	fetch = +refs/heads/*:refs/remotes/origin/*
+[remote "github"]
 	url = git@github.com:skypher/cl-oauth.git
 	fetch = +refs/heads/*:refs/remotes/github/*
