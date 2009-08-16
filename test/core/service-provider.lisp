@@ -108,7 +108,8 @@ to provide a specific signature (which is supposed to be base64-urlencoded)."
 ;;; phase 2
 (test (validate-access-token-request.valid-request-token
         :depends-on (and check-version.valid check-signature.valid))
-  (let ((request-token (make-request-token)))
+  (let ((request-token (make-request-token))
+        (*protocol-version* :1.0a))
     (setf (request-token-authorized-p request-token) t)
     (with-signed-request (:token request-token)
       (is (typep (validate-access-token-request) 'access-token)))))

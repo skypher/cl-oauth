@@ -144,11 +144,14 @@
     :include-leading-ampersand nil))
 
 (defun request-token-response (request-token &rest additional-parameters)
-  (declare (ignore additional-parameters)) ; TODO not supported yet
+  "Respond to a valid request token request. [6.1.2]"
+  (assert (notany #'oauth-parameter-p additional-parameters))
   (make-response
-    `(("oauth_token" . ,(token-key request-token))
-      ("oauth_token_secret" . ,(token-secret request-token))
-      ("oauth_callback_confirmed" . "true"))))
+    (append
+      `(("oauth_token" . ,(token-key request-token))
+        ("oauth_token_secret" . ,(token-secret request-token))
+        ("oauth_callback_confirmed" . "true"))
+      additional-parameters)))
 
 (defun validate-request-token-request (&key (request-token-ctor #'make-request-token)
                                             allow-oob-callback-p)
@@ -158,7 +161,7 @@
   the callback is supposed to be transferred oob. [6.1.1]"
   (protocol-assert (>= (length (normalized-parameters))
                        (case *protocol-version*
-                         ;; cb was introduced in 1.0a
+                         ;; callbacks were introduced in 1.0a
                          (1.0 4)
                          (t 6 5))))
   (check-version)
@@ -169,7 +172,8 @@
                                                     :allow-none t))
            (request-token (funcall request-token-ctor :consumer consumer-token
                                    :callback-uri (when callback-uri
-                                                   (puri:parse-uri callback-uri)))))
+                                                   (puri:parse-uri callback-uri))
+                                   :user-data (remove-oauth-parameters (normalized-parameters)))))
       (register-token request-token)
       request-token)))
 
@@ -210,6 +214,9 @@
              (case *protocol-version*
                (1.0 (values 5 6))
                (t 6 (values 6 7)))))
+  (format t "foo~%")
+  (protocol-assert (null (remove-oauth-parameters (normalized-parameters))))
+  (format t "bar~%")
   (check-version)
   (check-signature)
   (let* ((request-token (get-supplied-request-token

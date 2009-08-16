@@ -61,9 +61,10 @@ and must return a valid unauthorized request token or NIL.
 
 Returns the authorized token or NIL if the token couldn't be found."
   ;; TODO test
-  (let* ((token-key (assoc "oauth_token" (get-parameters) :test #'equal))
+  (let* ((parameters (get-parameters))
+         (token-key (assoc "oauth_token" parameters :test #'equal))
          (token (funcall request-token-lookup-fn token-key))
-         (user-parameters (remove "oauth_token" (get-parameters) :test #'equal)))
+         (user-parameters (remove-oauth-parameters parameters)))
     (cond
       (token
        (setf (request-token-authorized-p token) t)
@@ -102,9 +103,7 @@ token. POST is recommended as request method. [6.3.1]" ; TODO 1.0a section numbe
          (let* ((response (query-string->alist body))
                 (key (assoc "oauth_token" response :test #'equal))
                 (secret (assoc "oauth_token_secret" response :test #'equal))
-                (user-data (set-difference response '("oauth_token" "oauth_token_secret")
-                                           :test (lambda (e1 e2)
-                                                   (equal (car e1) e2)))))
+                (user-data (remove-oauth-parameters response)))
            (assert key)
            (assert secret)
            (make-access-token :consumer consumer-token :key key :secret secret

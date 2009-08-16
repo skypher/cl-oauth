@@ -49,3 +49,13 @@
   The case of user-supplied parameters is not restricted."
   (cdr (assoc name (normalized-parameters) :test test)))
 
+(defun oauth-parameter-p (parameter)
+  "Return T if PARAMETER starts with \"oauth_\". PARAMETER is a
+string denoting the parameter name."
+  (equal
+    (subseq (car (ensure-list parameter)) 0 (min 6 (length parameter)))
+    "oauth_" ))
+
+(defun remove-oauth-parameters (parameters)
+  (remove-if #'oauth-parameter-p parameters :key #'car))
+

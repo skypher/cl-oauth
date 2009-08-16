@@ -1,19 +1,20 @@
-This is CL-OAuth, an implementation of the OAuth 1.0a standard
+This is cl-oauth, an implementation of the OAuth 1.0a standard
 in Common Lisp.
 
 Spec URI: http://oauth.net/core/1.0a
 
 Section numbers mentioned in the code and documentation
-refer to this document.
+refer to this document, unless mentioned otherwise.
+
+Most of the code has passed basic manual and automated
+tests, but it hasn't been used in a real-world application
+yet.
 
 
 Not supported at this time:
 
   * parameters from Auth header (needs some parsing) [5.4]
     in principle a MUST, but as SP you get to decide ;)
-
-  * Additional parameters in server response [6.1.2]. Optional and trivial.
-    Additional parameters in request (store in tokens).
 
   * Nonce checking [9], a SHOULD.
 
@@ -30,6 +31,8 @@ People who contributed in some way to this library:
 
 
 TODO (apart from spec things not implemented yet):
+
+  * grep the code for TODO and FIXME
 
   * incorporate test cases from http://wiki.oauth.net/TestCases
 

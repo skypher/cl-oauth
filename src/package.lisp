@@ -11,10 +11,10 @@
     (:import-from #:hunchentoot
                   #:create-prefix-dispatcher
                   #:*dispatch-table*)
-    (:import-from #:alexandria #:with-unique-names #:curry #:rcurry)
+    (:import-from #:alexandria #:with-unique-names #:curry #:rcurry #:ensure-list #:compose)
     (:import-from #:split-sequence #:split-sequence)
     (:export
-      #:protocol-version
+      #:*protocol-version*
 
       ;;; error handling
       #:http-error
@@ -52,6 +52,10 @@
       #:hmac-sha1
       #:encode-signature
       
+      ;;; parameters
+      #:remove-auth-parameters
+      #:normalized-parameters
+
       ;;; service provider
       #:check-version
       #:check-nonce-and-timestamp
@@ -59,7 +63,7 @@
       #:check-verification-code
 
       #:validate-request-token-request
-      #:request-token-reponse
+      #:request-token-response
 
       #:get-supplied-request-token
       #:finalize-callback-uri
