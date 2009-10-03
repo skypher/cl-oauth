@@ -46,6 +46,13 @@
       #:access-token
       #:make-access-token
 
+      ;;; consumer functions
+      #:obtain-access-token
+      #:authorize-request-token
+      #:make-authorization-uri
+      #:obtain-request-token
+      #:access-protected-resource
+
       ;;; crypto
       #:signature-base-string
       #:hmac-key
