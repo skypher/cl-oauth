@@ -28,6 +28,7 @@
       #:token
       #:token-key
       #:token-secret
+      #:token-user-data
 
       #:token-consumer
 
