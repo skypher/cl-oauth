@@ -15,7 +15,7 @@
 (declaim (notinline hmac-key)) ; we want to trace this when debugging. 
 (defun hmac-key (consumer-secret &optional (token-secret ""))
   "9.2"
-  (concatenate 'string consumer-secret "&" token-secret))
+  (concatenate 'string (url-encode consumer-secret) "&" (url-encode token-secret)))
 
 (defun encode-signature (octets url-encode-p)
   "9.2.1"
