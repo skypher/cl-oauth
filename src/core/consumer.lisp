@@ -23,14 +23,16 @@ it has query params already they are added onto it."
 	   drakma-args)))
 
 (defun obtain-request-token (uri consumer-token
-                             &key (version :1.0) user-parameters drakma-args (request-method :post) (signature-method :hmac-sha1))
+                             &key (version :1.0) user-parameters drakma-args
+                                  (timestamp (get-universal-time)) (request-method :post)
+                                  (signature-method :hmac-sha1))
   "Additional parameters will be stored in the USER-DATA slot of the
 token."
   ;; TODO: support 1.0a too
   (let* ((parameters (append user-parameters
                              `(("oauth_consumer_key" . ,(token-key consumer-token))
                                ("oauth_signature_method" . ,(string signature-method))
-                               ("oauth_timestamp" . ,(princ-to-string (get-universal-time)))
+                               ("oauth_timestamp" . ,(princ-to-string timestamp))
                                ("oauth_nonce" . ,(princ-to-string (random most-positive-fixnum)))
                                ("oauth_version" . ,(princ-to-string version)))))
          (sbs (signature-base-string :uri uri :request-method request-method
