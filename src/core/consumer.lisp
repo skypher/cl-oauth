@@ -1,5 +1,26 @@
-
 (in-package :oauth)
+
+(defun uri-with-additional-query-part (uri query-part)
+  "Given a URI string or PURI uri, adds the string QUERY-PART to the end of the URI.  If
+it has query params already they are added onto it."
+  (let* ((puri (puri:uri uri))
+	 (existing-query-part (puri:uri-query puri)))
+    (setf (puri:uri-query puri)
+	  (if (and existing-query-part query-part)
+	      (concatenate 'string existing-query-part "&" query-part)
+	      (or existing-query-part query-part)))
+    (puri:render-uri puri nil)))
+
+(defun my-http-request (uri &key (request-method :post) parameters drakma-args)
+  (let* ((param-string-encoded (alist->query-string parameters :include-leading-ampersand nil :url-encode t)))
+    (apply #'drakma:http-request
+	   (if (eql :post request-method)
+	       uri
+	       (uri-with-additional-query-part uri param-string-encoded))
+	   :method request-method
+	   :content (when (eql :post request-method)
+		      param-string-encoded)
+	   drakma-args)))
 
 (defun obtain-request-token (uri consumer-token
                              &key (version :1.0) user-parameters drakma-args (request-method :post) (signature-method :hmac-sha1))
@@ -13,7 +34,7 @@ token."
                                ("oauth_nonce" . ,(princ-to-string (random most-positive-fixnum)))
                                ("oauth_version" . ,(princ-to-string version)))))
          (sbs (signature-base-string :uri uri :request-method request-method
-                                    :parameters (sort-parameters (copy-alist parameters))))
+				     :parameters (sort-parameters (copy-alist parameters))))
          (key (hmac-key (token-secret consumer-token)))
          (signature (encode-signature (hmac-sha1 sbs key) nil))
          (signed-parameters (cons `("oauth_signature" . ,signature) parameters)))
@@ -117,7 +138,6 @@ token. POST is recommended as request method. [6.3.1]" ; TODO 1.0a section numbe
                               :user-data user-data))
          (warn "Server returned status ~D" status)))))
 
-
 (defun access-protected-resource (uri access-token consumer-token
 				  &key
 				  user-parameters
@@ -127,6 +147,7 @@ token. POST is recommended as request method. [6.3.1]" ; TODO 1.0a section numbe
 				  (signature-method :hmac-sha1))
   "Additional parameters will be stored in the USER-DATA slot of the
 token."
+;  (format t "Accessing protected resource at~%   ~A~%" (puri:render-uri (puri:uri uri) nil))
   ;; TODO: support 1.0a too
   (let* ((parameters (append user-parameters
                              `(("oauth_consumer_key" . ,(token-key consumer-token))
@@ -141,11 +162,12 @@ token."
          (key (hmac-key (token-secret consumer-token) (token-secret access-token)))
          (signature (encode-signature (hmac-sha1 sbs key) nil))
          (signed-parameters (cons `("oauth_signature" . ,signature) parameters)))
+;    (format t "Signed with key ~A&~A~%" (token-secret consumer-token) (token-secret access-token))
     (multiple-value-bind (body status)
-        (apply #'drakma:http-request uri
-	       :method request-method
-	       :parameters signed-parameters
-	       drakma-args)
+        (my-http-request uri
+			 :request-method request-method
+			 :parameters signed-parameters
+			 :drakma-args drakma-args)
 ;      (format t "Requested uri and it returned ~A: ~A~%" status uri)
       (if (eql status 200)
 	  (values body status)
