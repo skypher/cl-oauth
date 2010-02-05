@@ -52,7 +52,7 @@ for a redirect. [6.2.1] in 1.0." ; TODO 1.0a section number
     puri))
 
 
-(defun ws-authorize-request-token (request-token-lookup-fn)
+(defun authorize-request-token-from-request (request-token-lookup-fn)
   "Authorize a request token. Must be running in request context.
 
 REQUEST-TOKEN-LOOKUP-FN will be called with the request token key
@@ -66,7 +66,7 @@ Returns the authorized token or NIL if the token couldn't be found."
          (user-parameters (remove-oauth-parameters parameters)))
     (cond
       (token
-       (authorize-request-token* token)
+       (authorize-request-token token)
        (setf (token-user-data token) user-parameters)
        token)
       (t
