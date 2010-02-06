@@ -25,6 +25,7 @@ it has query params already they are added onto it."
 (defun obtain-request-token (uri consumer-token
                              &key (version :1.0) user-parameters drakma-args
                                   (timestamp (get-universal-time)) (request-method :post)
+                                  callback-uri
                                   (signature-method :hmac-sha1))
   "Additional parameters will be stored in the USER-DATA slot of the
 token."
@@ -32,11 +33,12 @@ token."
   (let* ((parameters (append user-parameters
                              `(("oauth_consumer_key" . ,(token-key consumer-token))
                                ("oauth_signature_method" . ,(string signature-method))
+                               ("oauth_callback" . ,(or callback-uri "oob"))
                                ("oauth_timestamp" . ,(princ-to-string timestamp))
                                ("oauth_nonce" . ,(princ-to-string (random most-positive-fixnum)))
                                ("oauth_version" . ,(princ-to-string version)))))
          (sbs (signature-base-string :uri uri :request-method request-method
-				     :parameters (sort-parameters (copy-alist parameters))))
+                                     :parameters (sort-parameters (copy-alist parameters))))
          (key (hmac-key (token-secret consumer-token)))
          (signature (encode-signature (hmac-sha1 sbs key) nil))
          (signed-parameters (cons `("oauth_signature" . ,signature) parameters)))
@@ -54,11 +56,11 @@ token."
            (assert key)
            (assert secret)
            (make-request-token :consumer consumer-token :key key :secret secret
-                               :user-data user-data))
-         (warn "Server returned status ~D" status))))) ; TODO: elaborate
+                               :callback-uri callback-uri :user-data user-data))
+         (error "Server returned status ~D" status))))) ; TODO: elaborate
 
 
-(defun make-authorization-uri (uri  request-token &key (version :1.0) callback-uri user-parameters)
+(defun make-authorization-uri (uri request-token &key (version :1.0) callback-uri user-parameters)
   "Return the service provider's authorization URI. Use the resulting PURI
 for a redirect. [6.2.1] in 1.0." ; TODO 1.0a section number
   ;; TODO: does 1.0 support oob callbacks?
@@ -84,18 +86,19 @@ and must return a valid unauthorized request token or NIL.
 Returns the authorized token or NIL if the token couldn't be found."
   ;; TODO test
   (let* ((parameters (get-parameters))
-         (token-key (assoc "oauth_token" parameters :test #'equal))
-         (token (funcall request-token-lookup-fn token-key))
-         (user-parameters (remove-oauth-parameters parameters)))
-    (cond
-      (token
-       (authorize-request-token token)
-       (setf (token-user-data token) user-parameters)
-       token)
-      (t
-       (warn "Cannot find request token with key ~A~
-              (never requested or already authorized)" token-key)
-        nil))))
+         (token-key (cdr (assoc "oauth_token" parameters :test #'equal))))
+    (unless token-key
+      (error "No token key passed"))
+    (let ((token (funcall request-token-lookup-fn token-key))
+          (user-parameters (remove-oauth-parameters parameters)))
+      (cond
+        (token
+         (authorize-request-token token)
+         (setf (token-user-data token) user-parameters)
+         token)
+        (t
+         (error "Cannot find request token with key ~A ~
+                (never requested or already authorized)" token-key))))))
 
 
 (defun authorize-request-token (request-token)

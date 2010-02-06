@@ -8,6 +8,7 @@
           make-request-adapter
           *request-adapter*
           make-hunchentoot-request-adapter
+          init-default-request-adapter
           *request*
           request
           request-method
@@ -26,7 +27,7 @@
                                auth-parameters-fn
                                post-parameters-fn
                                get-parameters-fn)
-           collect `(,slotname nil :type (or function null)))
+           collect `(,slotname nil :type (or function symbol null)))
      (:documentation "An adapter for server-specific parts of OAuth.
      The return value of REQUEST-OBJECT-FN must be comparable with EQ."))
 
@@ -43,20 +44,24 @@
                                                            :host hostname
                                                            :port port
                                                            :path (hunchentoot:script-name* request))))
-                        :request-method-fn #'hunchentoot:request-method*
-                        :abort-request-fn #'hunchentoot:abort-request-handler
-                        :auth-parameters-fn (lambda (request)
-                                              nil) ; TODO
-                        :post-parameters-fn #'hunchentoot:post-parameters*
-                        :get-parameters-fn #'hunchentoot:get-parameters*))
+                        :request-method-fn 'hunchentoot:request-method*
+                        :abort-request-fn 'hunchentoot:abort-request-handler
+                        :auth-parameters-fn (lambda (request) nil) ; TODO
+                        :post-parameters-fn 'hunchentoot:post-parameters*
+                        :get-parameters-fn 'hunchentoot:get-parameters*))
                                               
 
-(defvar *request-adapter* (make-hunchentoot-request-adapter)
+(defvar *request-adapter* nil
   "Set this variable to an instance of REQUEST-ADAPTER tailored to
   your web server.")
 
+(defun init-default-request-adapter ()
+  (setf *request-adapter* (make-hunchentoot-request-adapter)))
+
+(init-default-request-adapter)
+
 (defvar *request* nil
-  "User-supplied request override. Only if you're know what you're doing.")
+  "User-supplied request override. Only if you know what you're doing.")
 
 (defun request ()
   (or *request* ; allow request object override

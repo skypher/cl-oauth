@@ -63,7 +63,3 @@
                :puri :hunchentoot)
   :in-order-to ((asdf:test-op (load-op "cl-oauth"))))
 
-(defmethod perform ((o asdf:test-op) (c (eql (find-system :cl-oauth))))
-  (funcall (intern "RUN!" :5am)
-           (intern "OAUTH" :oauth-test)))
-

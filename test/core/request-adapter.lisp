@@ -30,6 +30,14 @@
                                               (declare (ignore request))
                                               *get-parameters*)))
 
-;; TODO: bind this dynamically to not mess up a live image through testing.
-(setf *request-adapter* (make-test-request-adapter))
+(defun init-test-request-adapter ()
+  (setf *request-adapter* (make-test-request-adapter)))
+
+(defmethod asdf:perform ((o asdf:test-op) (c (eql (asdf:find-system :cl-oauth))))
+  (let ((original-request-adapter *request-adapter*))
+    (unwind-protect 
+        (progn
+          (init-test-request-adapter)
+          (fiveam:run! 'oauth))
+      (setf *request-adapter* original-request-adapter))))
 
