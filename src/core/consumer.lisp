@@ -153,6 +153,7 @@ token. POST is recommended as request method. [6.3.1]" ; TODO 1.0a section numbe
 
 (defun access-protected-resource (uri access-token consumer-token
 				  &key
+                                  (timestamp (get-universal-time))
 				  user-parameters
 				  (version :1.0)
 				  drakma-args
@@ -165,7 +166,7 @@ token."
                              `(("oauth_consumer_key" . ,(token-key consumer-token))
 			       ("oauth_token" . ,(token-key access-token))
                                ("oauth_signature_method" . ,(string signature-method))
-                               ("oauth_timestamp" . ,(princ-to-string (get-universal-time)))
+                               ("oauth_timestamp" . ,(princ-to-string timestamp))
                                ("oauth_nonce" . ,(princ-to-string (random most-positive-fixnum)))
                                ("oauth_version" . ,(princ-to-string version)))))
          (sbs (signature-base-string :uri uri :request-method request-method
