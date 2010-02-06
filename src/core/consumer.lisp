@@ -86,14 +86,18 @@ and must return a valid unauthorized request token or NIL.
 Returns the authorized token or NIL if the token couldn't be found."
   ;; TODO test
   (let* ((parameters (get-parameters))
-         (token-key (cdr (assoc "oauth_token" parameters :test #'equal))))
+         (token-key (cdr (assoc "oauth_token" parameters :test #'equal)))
+         (verification-code (cdr (assoc "oauth_verifier" parameters :test #'equal))))
     (unless token-key
       (error "No token key passed"))
+    (unless verification-code
+      (error "No verification code passed"))
     (let ((token (funcall request-token-lookup-fn token-key))
           (user-parameters (remove-oauth-parameters parameters)))
       (cond
         (token
          (authorize-request-token token)
+         (setf (request-token-verification-code token) verification-code)
          (setf (token-user-data token) user-parameters)
          token)
         (t
@@ -119,6 +123,7 @@ token. POST is recommended as request method. [6.3.1]" ; TODO 1.0a section numbe
   (assert (request-token-authorized-p request-token))
   (let* ((parameters `(("oauth_consumer_key" . ,(token-key consumer-token))
                        ("oauth_token" . ,(token-key request-token))
+                       ("oauth_verifier" . ,(request-token-verification-code request-token))
                        ("oauth_signature_method" . ,(string signature-method))
                        ("oauth_timestamp" . ,(princ-to-string (get-universal-time)))
                        ("oauth_nonce" . ,(princ-to-string (random most-positive-fixnum)))

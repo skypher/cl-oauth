@@ -86,7 +86,7 @@
                  :documentation "Callback URI for this request token.
                  NIL means oob.")
    (verification-code :type string
-                      :reader request-token-verification-code
+                      :accessor request-token-verification-code
                       :initarg :verification-code
                       :initform (random-verification-code))
    (authorized-p :type boolean
