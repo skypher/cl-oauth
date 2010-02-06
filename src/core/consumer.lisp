@@ -160,7 +160,6 @@ token. POST is recommended as request method. [6.3.1]" ; TODO 1.0a section numbe
 				  (signature-method :hmac-sha1))
   "Additional parameters will be stored in the USER-DATA slot of the
 token."
-;  (format t "Accessing protected resource at~%   ~A~%" (puri:render-uri (puri:uri uri) nil))
   ;; TODO: support 1.0a too
   (let* ((parameters (append user-parameters
                              `(("oauth_consumer_key" . ,(token-key consumer-token))
@@ -171,17 +170,14 @@ token."
                                ("oauth_version" . ,(princ-to-string version)))))
          (sbs (signature-base-string :uri uri :request-method request-method
 				     :parameters (sort-parameters (copy-alist parameters))))
-;	 (nothing (format t "Signature base string:~%~A~%" sbs))
          (key (hmac-key (token-secret consumer-token) (token-secret access-token)))
          (signature (encode-signature (hmac-sha1 sbs key) nil))
          (signed-parameters (cons `("oauth_signature" . ,signature) parameters)))
-;    (format t "Signed with key ~A&~A~%" (token-secret consumer-token) (token-secret access-token))
     (multiple-value-bind (body status)
         (my-http-request uri
 			 :request-method request-method
 			 :parameters signed-parameters
 			 :drakma-args drakma-args)
-;      (format t "Requested uri and it returned ~A: ~A~%" status uri)
       (if (eql status 200)
 	  (values body status)
 	  (progn (warn "Server returned status ~D" status)
