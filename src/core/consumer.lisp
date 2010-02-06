@@ -131,7 +131,7 @@ token. POST is recommended as request method. [6.3.1]" ; TODO 1.0a section numbe
                        ("oauth_version" . ,(princ-to-string version))))
          (sbs (signature-base-string :uri uri :request-method request-method
                                     :parameters (sort-parameters (copy-alist parameters))))
-         (key (hmac-key (token-secret consumer-token)))
+         (key (hmac-key (token-secret consumer-token) (token-secret request-token)))
          (signature (encode-signature (hmac-sha1 sbs key) nil))
          (signed-parameters (cons `("oauth_signature" . ,signature) parameters)))
     (multiple-value-bind (body status)
