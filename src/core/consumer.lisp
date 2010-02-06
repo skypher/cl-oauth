@@ -11,16 +11,33 @@ it has query params already they are added onto it."
 	      (or existing-query-part query-part)))
     (puri:render-uri puri nil)))
 
+(defun build-auth-string (parameters)
+  (format nil "OAuth ~{~A=~A~^,~}"
+          (alexandria:flatten (mapcar
+                                (lambda (x y) (list x y))
+                                (mapcar #'car parameters)
+                                (mapcar #'cdr parameters)))))
+
 (defun my-http-request (uri &key (request-method :post) parameters drakma-args)
   (let* ((param-string-encoded (alist->query-string parameters :include-leading-ampersand nil :url-encode t)))
-    (apply #'drakma:http-request
-	   (if (eql :post request-method)
-	       uri
-	       (uri-with-additional-query-part uri param-string-encoded))
-	   :method request-method
-	   :content (when (eql :post request-method)
-		      param-string-encoded)
-	   drakma-args)))
+    (case request-method
+      (:get 
+        (apply #'drakma:http-request
+	       (uri-with-additional-query-part uri param-string-encoded)
+               :method request-method
+               drakma-args))
+      (:post
+        (apply #'drakma:http-request
+               uri
+               :method request-method
+               :content param-string-encoded
+               drakma-args))
+      (:auth
+        (apply #'drakma:http-request
+               uri
+               :method :get
+               :additional-headers `(("Authorization" . (build-auth-string parameters)))
+               drakma-args)))))
 
 (defun obtain-request-token (uri consumer-token
                              &key (version :1.0) user-parameters drakma-args
