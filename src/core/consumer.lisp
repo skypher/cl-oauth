@@ -123,7 +123,7 @@ token. POST is recommended as request method. [6.3.1]" ; TODO 1.0a section numbe
   ;; TODO mark request token as used, but only on success
   (assert (request-token-authorized-p request-token))
   (let* ((parameters `(("oauth_consumer_key" . ,(token-key consumer-token))
-                       ("oauth_token" . ,(token-key request-token))
+                       ("oauth_token" . ,(hunchentoot:url-decode (token-key request-token)))
                        ("oauth_verifier" . ,(request-token-verification-code request-token))
                        ("oauth_signature_method" . ,(string signature-method))
                        ("oauth_timestamp" . ,(princ-to-string timestamp))
@@ -145,7 +145,9 @@ token. POST is recommended as request method. [6.3.1]" ; TODO 1.0a section numbe
                 (user-data (remove-oauth-parameters response)))
            (assert key)
            (assert secret)
-           (make-access-token :consumer consumer-token :key key :secret secret
+           (make-access-token :consumer consumer-token
+                              :key (hunchentoot:url-decode key)
+                              :secret (hunchentoot:url-decode secret)
                               :user-data user-data))
          (warn "Server returned status ~D" status)))))
 
