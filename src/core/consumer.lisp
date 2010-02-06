@@ -115,6 +115,7 @@ Returns the authorized token or NIL if the token couldn't be found."
 (defun obtain-access-token (uri consumer-token request-token
                              &key (request-method :post)
                                   (version :1.0)
+                                  (timestamp (get-universal-time))
                                   drakma-args
 			          (signature-method :hmac-sha1))
   "Additional parameters will be stored in the USER-DATA slot of the
@@ -125,7 +126,7 @@ token. POST is recommended as request method. [6.3.1]" ; TODO 1.0a section numbe
                        ("oauth_token" . ,(token-key request-token))
                        ("oauth_verifier" . ,(request-token-verification-code request-token))
                        ("oauth_signature_method" . ,(string signature-method))
-                       ("oauth_timestamp" . ,(princ-to-string (get-universal-time)))
+                       ("oauth_timestamp" . ,(princ-to-string timestamp))
                        ("oauth_nonce" . ,(princ-to-string (random most-positive-fixnum)))
                        ("oauth_version" . ,(princ-to-string version))))
          (sbs (signature-base-string :uri uri :request-method request-method
