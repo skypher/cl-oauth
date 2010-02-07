@@ -115,5 +115,6 @@ the external format EXTERNAL-FORMAT."
           (t
            (concatenate 'string ":" (princ-to-string port))))
         path)
-      (query-string->alist (puri:uri-query uri)))))
+      (awhen (puri:uri-query uri)
+        (query-string->alist it)))))
 

@@ -19,6 +19,7 @@ it has query params already they are added onto it."
                                 (mapcar (compose #'url-encode #'cdr) parameters)))))
 
 (defun http-request (uri &key (request-method :post) parameters drakma-args)
+  ;; TODO handle redirects properly
   (let* ((param-string-encoded (alist->query-string parameters :include-leading-ampersand nil :url-encode t)))
     (case request-method
       (:get 
@@ -73,7 +74,7 @@ token."
                                                    (equal (car e1) e2)))))
            (assert key)
            (assert secret)
-           (make-request-token :consumer consumer-token :key key :secret secret
+           (make-request-token :consumer consumer-token :key key :secret secret ;; TODO url-decode
                                :callback-uri callback-uri :user-data user-data))
          (error "Server returned status ~D" status))))) ; TODO: elaborate
 
