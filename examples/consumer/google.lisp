@@ -8,9 +8,11 @@
 (in-package :cl-oauth.google-consumer)
 
 ;;; insert your credentials and auxiliary information here.
-(defparameter *key* "wintermute.mine.nu") 
-(defparameter *secret* "L3YtuVz9EYU/dkrHnM7UD72c") 
-(defparameter *callback-uri* "http://wintermute.mine.nu/")
+(defparameter *key* "")
+(defparameter *secret* "")
+(defparameter *callback-uri* "")
+(defparameter *callback-port* 8090
+  "Port to listen on for the callback")
 
 
 ;;; go
@@ -68,5 +70,5 @@
   (hunchentoot:stop *web-server*)
   (setf *web-server* nil))
 
-(setf *web-server* (hunchentoot:start (make-instance 'hunchentoot:acceptor :port 8090)))
+(setf *web-server* (hunchentoot:start (make-instance 'hunchentoot:acceptor :port *callback-port*)))
 
