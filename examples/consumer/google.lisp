@@ -59,7 +59,14 @@
           (warn "Couldn't verify request token authorization: ~A" c)))
       (when (request-token-authorized-p *request-token*)
         (format t "Successfully verified request token with key ~S~%" (token-key *request-token*))
-        (setf *access-token* (get-access-token))))))
+        (setf *access-token* (get-access-token))
+        ;; test request:
+        (let ((result (access-protected-resource
+                        "http://www.google.com/calendar/feeds/default/allcalendars/full?orderby=starttime"
+                        *access-token* *consumer-token*)))
+          (if (stringp result)
+            result
+            (babel:octets-to-string result)))))))
 
 (pushnew 'callback-dispatcher hunchentoot:*dispatch-table*)
 

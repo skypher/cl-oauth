@@ -18,7 +18,7 @@ it has query params already they are added onto it."
                                 (mapcar (compose #'url-encode #'car) parameters)
                                 (mapcar (compose #'url-encode #'cdr) parameters)))))
 
-(defun http-request (uri &key (request-method :post) parameters drakma-args)
+(defun http-request (uri &key (request-method :get) parameters drakma-args)
   ;; TODO handle redirects properly
   (let* ((param-string-encoded (alist->query-string parameters :include-leading-ampersand nil :url-encode t)))
     (case request-method
@@ -168,7 +168,7 @@ token. POST is recommended as request method. [6.3.1]" ; TODO 1.0a section numbe
                               :key (url-decode key)
                               :secret (url-decode secret)
                               :user-data user-data))
-         (warn "Server returned status ~D" status)))))
+         (error "Couldn't obtain access token: server returned status ~D" status)))))
 
 (defun access-protected-resource (uri access-token consumer-token
 				  &key
@@ -176,7 +176,7 @@ token. POST is recommended as request method. [6.3.1]" ; TODO 1.0a section numbe
 				  user-parameters
 				  (version :1.0)
 				  drakma-args
-				  (request-method :post)
+				  (request-method :get)
 				  (signature-method :hmac-sha1))
   "Additional parameters will be stored in the USER-DATA slot of the
 token."
