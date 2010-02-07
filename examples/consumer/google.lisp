@@ -7,13 +7,6 @@
 
 (in-package :cl-oauth.google-consumer)
 
-;;; Google requires the timestamp to be synced to Unix time.
-(defconstant +unix-to-universal-time+ 2208988800)
-
-(defun get-unix-time (&optional (ut (get-universal-time)))
-  (- ut +unix-to-universal-time+))
-
-
 ;;; insert your credentials and auxiliary information here.
 (defparameter *key* "wintermute.mine.nu") 
 (defparameter *secret* "L3YtuVz9EYU/dkrHnM7UD72c") 
@@ -30,8 +23,7 @@
 
 (defun get-access-token ()
   (obtain-access-token *get-access-token-endpoint*
-                       *consumer-token* *request-token*
-                       :timestamp (get-unix-time)))
+                       *consumer-token* *request-token*))
 
 ;;; get a request token
 (defun get-request-token (scope)
@@ -39,7 +31,6 @@
   (obtain-request-token
     *get-request-token-endpoint*
     *consumer-token*
-    :timestamp (get-unix-time)
     :callback-uri *callback-uri*
     :user-parameters `(("scope" . ,scope))))
 
@@ -60,7 +51,7 @@
             (lambda (rt-key)
               (assert *request-token*)
               (unless (equal (url-encode rt-key) (token-key *request-token*))
-                (warn "Keys not equal: ~S / ~S~%" (url-encode rt-key) (token-key *request-token*)))
+                (warn "Keys differ: ~S / ~S~%" (url-encode rt-key) (token-key *request-token*)))
               *request-token*))
         (error (c)
           (warn "Couldn't verify request token authorization: ~A" c)))
@@ -78,5 +69,4 @@
   (setf *web-server* nil))
 
 (setf *web-server* (hunchentoot:start (make-instance 'hunchentoot:acceptor :port 8090)))
-
 

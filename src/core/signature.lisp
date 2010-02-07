@@ -6,7 +6,7 @@
                                    (parameters (normalized-parameters)))
   (concatenate 'string (string-upcase (princ-to-string request-method))
                        "&" (url-encode
-                             (normalize-request-uri uri))
+                             (normalize-uri uri))
                        "&" (url-encode
                              (alist->query-string parameters
 						  :url-encode t

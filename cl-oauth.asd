@@ -20,9 +20,10 @@
                         :components ((:file "package")
                                      (:module "util"
                                               :components ((:file "misc")
-                                                           (:file "uri")
                                                            (:file "query-string"
-                                                                  :depends-on ("misc")))
+                                                                  :depends-on ("misc"))
+                                                           (:file "uri"
+                                                                  :depends-on ("query-string")))
                                               :depends-on ("package"))
                                      (:module "core"
                                               :components ((:file "crypto")

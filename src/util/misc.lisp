@@ -18,3 +18,8 @@
 (defun between (what lower upper)
   (and (>= what lower) (<= what upper)))
 
+(defconstant +unix-to-universal-time+ 2208988800)
+
+(defun get-unix-time (&optional (ut (get-universal-time)))
+  (- ut +unix-to-universal-time+))
+
