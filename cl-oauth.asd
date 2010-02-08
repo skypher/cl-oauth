@@ -12,7 +12,7 @@
 (defsystem :cl-oauth
   :name "CL-OAuth"
   :description "Common Lisp OAuth implementation"
-  :version "2"
+  :version "3"
   :maintainer "Leslie P. Polzer <polzer@gnu.org>"
   :licence "LLGPL"
   :components ((:static-file "cl-oauth.asd")
