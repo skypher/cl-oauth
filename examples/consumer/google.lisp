@@ -24,8 +24,7 @@
 (defparameter *access-token* nil)
 
 (defun get-access-token ()
-  (obtain-access-token *get-access-token-endpoint*
-                       *consumer-token* *request-token*))
+  (obtain-access-token *get-access-token-endpoint* *request-token*))
 
 ;;; get a request token
 (defun get-request-token (scope)
@@ -63,7 +62,7 @@
         ;; test request:
         (let ((result (access-protected-resource
                         "http://www.google.com/calendar/feeds/default/allcalendars/full?orderby=starttime"
-                        *access-token* *consumer-token*)))
+                        *access-token*)))
           (if (stringp result)
             result
             (babel:octets-to-string result)))))))

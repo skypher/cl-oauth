@@ -79,16 +79,17 @@
 
 ;;; request tokens
 (defclass request-token (token consumer-ref-mixin)
-  ((callback-uri :type (or null puri:uri)
+  ((callback-uri :type (or puri:uri null)
                  :reader request-token-callback-uri
                  :initarg :callback-uri
                  :initform nil
                  :documentation "Callback URI for this request token.
                  NIL means oob.")
-   (verification-code :type string
+   (verification-code :type (or string null)
                       :accessor request-token-verification-code
                       :initarg :verification-code
-                      :initform (random-verification-code))
+                      :initform (random-verification-code)
+                      :documentation "Might be NIL for OAuth 1.0")
    (authorized-p :type boolean
                  :accessor request-token-authorized-p
                  :initform nil)))
@@ -99,8 +100,37 @@
 
 ;;; access tokens
 (defclass access-token (token consumer-ref-mixin)
-  ())
+  ((session-handle :type (or string null)
+                   :reader access-token-session-handle
+                   :initarg :session-handle
+                   :initform nil)
+   (expires :type (or integer null)
+            :reader access-token-expires
+            :initarg :expires
+            :initform nil
+            :documentation "Universal time when this token expires.")
+   (authorization-expires
+     :type (or integer null)
+     :reader access-token-authorization-expires
+     :initarg :authorization-expires
+     :initform nil
+     :documentation "Universal time when this token's session expires.")
+   (origin-uri
+     :type (or puri:uri string null)
+     :reader access-token-origin-uri
+     :initarg :origin-uri
+     :initform nil
+     :documentation "URI this access token has been obtained from.
+                     Needed for refresh.")))
+
 
 (defun make-access-token (&rest args)
   (apply #'make-instance 'access-token args))
+
+(defun access-token-expired-p (access-token)
+  (and (access-token-session-handle access-token)
+       (or (aand (access-token-expires access-token)
+                 (> (get-universal-time) it))
+           (aand (access-token-authorization-expires access-token)
+                 (> (get-universal-time) it)))))
 

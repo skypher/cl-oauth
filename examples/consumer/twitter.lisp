@@ -24,7 +24,7 @@
 (defparameter *access-token* nil)
 
 (defun get-access-token ()
-  (obtain-access-token *get-access-token-endpoint* *consumer-token* *request-token*))
+  (obtain-access-token *get-access-token-endpoint* *request-token*))
 
 ;;; get a request token
 (defun get-request-token ()
@@ -60,7 +60,7 @@
         ;; test request:
         (babel:octets-to-string
           (access-protected-resource "http://search.twitter.com/search.json?q=twitter"
-                                     *access-token* *consumer-token*))))))
+                                     *access-token*))))))
 
 (pushnew 'callback-dispatcher hunchentoot:*dispatch-table*)
 

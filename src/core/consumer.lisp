@@ -103,14 +103,11 @@ REQUEST-TOKEN-LOOKUP-FN will be called with the request token key
 and must return a valid unauthorized request token or NIL.
 
 Returns the authorized token or NIL if the token couldn't be found."
-  ;; TODO test
   (let* ((parameters (get-parameters))
          (token-key (cdr (assoc "oauth_token" parameters :test #'equal)))
          (verification-code (cdr (assoc "oauth_verifier" parameters :test #'equal))))
     (unless token-key
       (error "No token key passed"))
-    (unless verification-code
-      (error "No verification code passed"))
     (let ((token (funcall request-token-lookup-fn token-key))
           (user-parameters (remove-oauth-parameters parameters)))
       (cond
@@ -131,56 +128,114 @@ Returns the authorized token or NIL if the token couldn't be found."
   request-token)
 
 
-(defun obtain-access-token (uri consumer-token request-token
-                             &key (request-method :post)
-                                  (version :1.0)
-                                  (timestamp (get-unix-time))
-                                  drakma-args
-			          (signature-method :hmac-sha1))
+(defun obtain-access-token (uri request-or-access-token &key
+                            (consumer-token (token-consumer request-or-access-token))
+                            (request-method :post)
+                            (version :1.0)
+                            (timestamp (get-unix-time))
+                            drakma-args
+			    (signature-method :hmac-sha1))
   "Additional parameters will be stored in the USER-DATA slot of the
 token. POST is recommended as request method. [6.3.1]" ; TODO 1.0a section number
-  ;; TODO mark request token as used, but only on success
-  (assert (request-token-authorized-p request-token))
-  (let* ((parameters `(("oauth_consumer_key" . ,(token-key consumer-token))
-                       ("oauth_token" . ,(url-decode (token-key request-token)))
-                       ("oauth_verifier" . ,(request-token-verification-code request-token))
-                       ("oauth_signature_method" . ,(string signature-method))
-                       ("oauth_timestamp" . ,(princ-to-string timestamp))
-                       ("oauth_nonce" . ,(princ-to-string (random most-positive-fixnum)))
-                       ("oauth_version" . ,(princ-to-string version))))
-         (sbs (signature-base-string :uri uri :request-method request-method
-                                    :parameters (sort-parameters (copy-alist parameters))))
-         (key (hmac-key (token-secret consumer-token) (url-decode (token-secret request-token))))
-         (signature (encode-signature (hmac-sha1 sbs key) nil))
-         (signed-parameters (cons `("oauth_signature" . ,signature) parameters)))
-    (multiple-value-bind (body status)
-        (apply #'drakma:http-request uri :method request-method
-                                         :parameters signed-parameters
-                                         drakma-args)
-      (if (eql status 200)
-         (let* ((response (query-string->alist body))
-                (key (cdr (assoc "oauth_token" response :test #'equal)))
-                (secret (cdr (assoc "oauth_token_secret" response :test #'equal)))
-                (user-data (remove-oauth-parameters response)))
-           (assert key)
-           (assert secret)
-           (make-access-token :consumer consumer-token
-                              :key (url-decode key)
-                              :secret (url-decode secret)
-                              :user-data user-data))
-         (error "Couldn't obtain access token: server returned status ~D" status)))))
+  (let ((refresh-p (typep request-or-access-token 'access-token)))
+    (unless refresh-p
+      (assert (request-token-authorized-p request-or-access-token)))
+    (let* ((parameters (append
+                         `(("oauth_consumer_key" . ,(token-key consumer-token))
+                           ("oauth_token" . ,(url-decode (token-key request-or-access-token)))
+                           ("oauth_signature_method" . ,(string signature-method))
+                           ("oauth_timestamp" . ,(princ-to-string timestamp))
+                           ("oauth_nonce" . ,(princ-to-string (random most-positive-fixnum)))
+                           ("oauth_version" . ,(princ-to-string version)))
+                         (if refresh-p
+                           `(("oauth_session_handle" . ,(access-token-session-handle
+                                                          request-or-access-token)))
+                           (awhen (request-token-verification-code request-or-access-token)
+                             `(("oauth_verifier" . ,it))))))
+           (sbs (signature-base-string :uri uri :request-method request-method
+                                      :parameters (sort-parameters (copy-alist parameters))))
+           (key (hmac-key (token-secret consumer-token)
+                          (url-decode (token-secret request-or-access-token))))
+           (signature (encode-signature (hmac-sha1 sbs key) nil))
+           (signed-parameters (cons `("oauth_signature" . ,signature) parameters)))
+      (multiple-value-bind (body status)
+          (apply #'drakma:http-request uri :method request-method
+                                           :parameters signed-parameters
+                                           drakma-args)
+        (if (eql status 200)
+           (let ((response (query-string->alist body)))
+             (flet ((field (name)
+                      (cdr (assoc name response :test #'equal))))
+               (let ((key (field "oauth_token"))
+                     (secret (field "oauth_token_secret"))
+                     (session-handle (field "oauth_session_handle"))
+                     (expires (awhen (field "oauth_expires_in")
+                                (parse-integer it)))
+                     (authorization-expires (awhen (field "oauth_authorization_expires_in")
+                                              (parse-integer it)))
+                     (user-data (remove-oauth-parameters response)))
+                 (assert key)
+                 (assert secret)
+                 (make-access-token :consumer consumer-token
+                                    :key (url-decode key)
+                                    :secret (url-decode secret)
+                                    :session-handle session-handle
+                                    :expires (awhen expires
+                                               (+ (get-universal-time) it))
+                                    :authorization-expires (awhen authorization-expires
+                                                             (+ (get-universal-time) it))
+                                    :origin-uri uri
+                                    :user-data user-data))))
+           (error "Couldn't obtain access token: server returned status ~D" status))))))
 
-(defun access-protected-resource (uri access-token consumer-token
-				  &key
+(defun refresh-access-token (access-token)
+  (obtain-access-token (access-token-origin-uri access-token) access-token))
+
+(defun maybe-refresh-access-token (access-token &optional on-refresh)
+  (if (access-token-expired-p access-token)
+    (let ((new-token (refresh-access-token access-token)))
+      (when on-refresh
+        (funcall on-refresh new-token))
+      new-token)
+    access-token))
+
+(defun get-problem-report-from-headers (headers)
+  (let ((authenticate-header (drakma:header-value :www-authenticate headers)))
+    (when authenticate-header
+      (assert (>= (length authenticate-header) 5))
+      (let ((type (subseq authenticate-header 0 5)))
+        (assert (equalp type "OAuth"))
+        (when (> (length authenticate-header) 5)
+          (let ((parameters (mapcar (lambda (token)
+                                      (destructuring-bind (name value)
+                                          (split-sequence #\= token)
+                                        (cons name value)))
+                                    (drakma:split-tokens
+                                      (subseq authenticate-header 6)))))
+            parameters))))))
+
+(defun get-problem-report (headers body)
+  (declare (ignore body)) ; TODO
+  (let ((from-headers (get-problem-report-from-headers headers)))
+    from-headers))
+
+(defun access-protected-resource (uri access-token &rest kwargs &key
+                                  (consumer-token (token-consumer access-token))
+                                  on-refresh
                                   (timestamp (get-unix-time))
-				  user-parameters
-				  (version :1.0)
-				  drakma-args
-				  (request-method :get)
-				  (signature-method :hmac-sha1))
-  "Additional parameters will be stored in the USER-DATA slot of the
-token."
-  ;; TODO: support 1.0a too
+                                  user-parameters
+                                  (version :1.0)
+                                  drakma-args
+                                  (request-method :get)
+                                  (signature-method :hmac-sha1))
+  "Access the protected resource at URI using ACCESS-TOKEN.
+
+If the token contains OAuth Session information it will be checked for
+validity before the request is made. Should the server notify us that
+it has prematurely expired the token will be refresh as well and the
+request sent again using the new token. ON-REFRESH will be called
+whenever the access token is renewed."
+  ;(setf access-token (maybe-refresh-access-token access-token on-refresh))
   (multiple-value-bind (normalized-uri query-string-parameters) (normalize-uri uri)
     (let* ((parameters (append query-string-parameters
                                user-parameters
@@ -195,19 +250,24 @@ token."
            (key (hmac-key (token-secret consumer-token) (token-secret access-token)))
            (signature (encode-signature (hmac-sha1 sbs key) nil))
            (signed-parameters (cons `("oauth_signature" . ,signature) parameters)))
-      (multiple-value-bind (body status)
+      (multiple-value-bind (body status headers)
           (http-request normalized-uri
                         :request-method request-method
                         :parameters signed-parameters
                         :drakma-args drakma-args)
         (if (eql status 200)
-            (values body status)
-            (progn (warn "Server returned status ~D" status)
-                   (values body status)))))))
+          (values body status)
+          (let* ((problem-report (get-problem-report headers body))
+                 (problem-hint (cdr (assoc "oauth_problem" problem-report)))
+                 (problem-advice (cdr (assoc "oauth_problem_advice" problem-report))))
+            (cond
+              ((and (eql status 401)
+                    (equalp problem-hint "token_expired"))
+               (format t "INFO: refreshing access token~%")
+               (let ((new-token (refresh-access-token access-token)))
+                 (when on-refresh
+                   (funcall on-refresh new-token))
+                 (apply #'access-protected-resource uri new-token kwargs)))
+              (t
+               (values body status problem-hint problem-advice)))))))))
 
-
-;; test
-;(obtain-request-token "http://term.ie/oauth/example/request_token.php"
-;                      :GET (make-consumer-token) "HMAC-SHA1")
-
-;(obtain-access-token

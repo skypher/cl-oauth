@@ -46,6 +46,10 @@
 
       #:access-token
       #:make-access-token
+      #:access-token-session-handle
+      #:access-token-expires
+      #:access-token-authorization-expires
+      #:access-token-expired-p
 
       ;;; consumer functions
       #:obtain-access-token

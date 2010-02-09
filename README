@@ -6,8 +6,8 @@ Spec URI: http://oauth.net/core/1.0a
 Section numbers mentioned in the code and documentation
 refer to this document, unless mentioned otherwise.
 
-Most of the code has passed basic manual and automated
-tests, but it hasn't been used in a real-world application
+Most of the code has passed basic manual and automated tests,
+but the SP code hasn't been used in a real-world application
 yet.
 
 
@@ -28,8 +28,10 @@ Service Provider:
 
 Consumer:
 
-  * Auth parameters appear to be working, but Google rejects them
-    for some reason. Do more testing and debugging.
+  * Auth parameters should be working, but Google rejects them for
+    some reason. Do more testing and debugging.
+
+  * Revoking tokens as per section 7 of the Session extension
 
 Both:
 
@@ -38,6 +40,8 @@ Both:
     padding implemented). [9.3]
 
   * PLAINTEXT signature. Meh. [9.4]
+
+  * POST and Auth requests are hardly tested yet.
 
 
 People who contributed in some way to this library:
@@ -59,4 +63,6 @@ TODO (apart from spec things not implemented yet):
     stuff from 1.0 and 1.0a servers too, of course).
 
   * compare with the Hammer draft spec and resolve differences
+
+  * always store the URL-decoded key/secret in the request token
 

@@ -26,7 +26,7 @@
 (defparameter *access-token* nil)
 
 (defun get-access-token ()
-  (obtain-access-token *get-access-token-endpoint* *consumer-token* *request-token*))
+  (obtain-access-token *get-access-token-endpoint* *request-token*))
 
 ;;; get a request token
 (defun get-request-token ()
@@ -58,7 +58,16 @@
           (warn "Couldn't verify request token authorization: ~A" c)))
       (when (request-token-authorized-p *request-token*)
         (format t "Successfully verified request token with key ~S~%" (token-key *request-token*))
-        (setf *access-token* (get-access-token))))))
+        (setf *access-token* (get-access-token))
+        (let ((reply-body (access-protected-resource
+                            "http://social.yahooapis.com/v1/user/jupitercollision/profile"
+                            *access-token*
+                            ;; Yahoo uses OAuth session so the token might need refresh.
+                            :on-refresh (lambda (new-token)
+                                          (setf *access-token* new-token)) )))
+          (etypecase reply-body
+            (string reply-body)
+            ((vector (unsigned-byte 8)) (babel:octets-to-string reply-body))))))))
 
 (pushnew 'callback-dispatcher hunchentoot:*dispatch-table*)
 
