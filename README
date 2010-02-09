@@ -33,6 +33,8 @@ Consumer:
 
   * Revoking tokens as per section 7 of the Session extension
 
+  * Problem Reporting extension: fields in body are ignored.
+
 Both:
 
   * crypto signatures different from HMAC-SHA1. It's easy to use

@@ -209,7 +209,7 @@ token. POST is recommended as request method. [6.3.1]" ; TODO 1.0a section numbe
           (let ((parameters (mapcar (lambda (token)
                                       (destructuring-bind (name value)
                                           (split-sequence #\= token)
-                                        (cons name value)))
+                                        (cons name (string-trim '(#\") value))))
                                     (drakma:split-tokens
                                       (subseq authenticate-header 6)))))
             parameters))))))
@@ -235,7 +235,7 @@ validity before the request is made. Should the server notify us that
 it has prematurely expired the token will be refresh as well and the
 request sent again using the new token. ON-REFRESH will be called
 whenever the access token is renewed."
-  ;(setf access-token (maybe-refresh-access-token access-token on-refresh))
+  (setf access-token (maybe-refresh-access-token access-token on-refresh))
   (multiple-value-bind (normalized-uri query-string-parameters) (normalize-uri uri)
     (let* ((parameters (append query-string-parameters
                                user-parameters
@@ -258,8 +258,8 @@ whenever the access token is renewed."
         (if (eql status 200)
           (values body status)
           (let* ((problem-report (get-problem-report headers body))
-                 (problem-hint (cdr (assoc "oauth_problem" problem-report)))
-                 (problem-advice (cdr (assoc "oauth_problem_advice" problem-report))))
+                 (problem-hint (cdr (assoc "oauth_problem" problem-report :test #'equalp)))
+                 (problem-advice (cdr (assoc "oauth_problem_advice" problem-report :test #'equalp))))
             (cond
               ((and (eql status 401)
                     (equalp problem-hint "token_expired"))
