@@ -201,11 +201,10 @@ token. POST is recommended as request method. [6.3.1]" ; TODO 1.0a section numbe
 
 (defun get-problem-report-from-headers (headers)
   (let ((authenticate-header (drakma:header-value :www-authenticate headers)))
-    (when authenticate-header
-      (assert (>= (length authenticate-header) 5))
+    (when (and authenticate-header (>= (length authenticate-header) 5))
       (let ((type (subseq authenticate-header 0 5)))
-        (assert (equalp type "OAuth"))
-        (when (> (length authenticate-header) 5)
+        (when (and (equalp type "OAuth") 
+		   (> (length authenticate-header) 5))
           (let ((parameters (mapcar (lambda (token)
                                       (destructuring-bind (name value)
                                           (split-sequence #\= token)
