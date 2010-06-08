@@ -34,7 +34,6 @@ it has query params already they are added onto it."
                :content param-string-encoded
                drakma-args))
       (:auth
-        ;; this doesn't work yet, at least not with Google. Realm required?
         (apply #'drakma:http-request
                uri
                :method :get
@@ -244,7 +243,10 @@ whenever the access token is renewed."
                                  ("oauth_timestamp" . ,(princ-to-string timestamp))
                                  ("oauth_nonce" . ,(princ-to-string (random most-positive-fixnum)))
                                  ("oauth_version" . ,(princ-to-string version)))))
-           (sbs (signature-base-string :uri normalized-uri :request-method request-method
+           (sbs (signature-base-string :uri normalized-uri
+                                       :request-method (if (eq request-method :auth)
+                                                         :get
+                                                         request-method)
                                        :parameters (sort-parameters (copy-alist parameters))))
            (key (hmac-key (token-secret consumer-token) (token-secret access-token)))
            (signature (encode-signature (hmac-sha1 sbs key) nil))
