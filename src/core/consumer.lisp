@@ -217,7 +217,7 @@ token. POST is recommended as request method. [6.3.1]" ; TODO 1.0a section numbe
   (let ((from-headers (get-problem-report-from-headers headers)))
     from-headers))
 
-(defun access-protected-resource (uri access-token &rest kwargs &key
+(defun access-protected-resource (uri access-token kwargs &key
                                   (consumer-token (token-consumer access-token))
                                   on-refresh
                                   (timestamp (get-unix-time))
