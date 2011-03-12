@@ -172,7 +172,9 @@ token. POST is recommended as request method. [6.3.1]" ; TODO 1.0a section numbe
                                            :parameters signed-parameters
                                            drakma-args)
         (if (eql status 200)
-           (let ((response (query-string->alist body)))
+            (let ((response (query-string->alist (if (stringp body)
+                                                     body
+                                                     (babel:octets-to-string body)))))
              (flet ((field (name)
                       (cdr (assoc name response :test #'equal))))
                (let ((key (field "oauth_token"))
