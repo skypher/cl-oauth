@@ -18,27 +18,19 @@ it has query params already they are added onto it."
                                 (mapcar (compose #'url-encode #'car) parameters)
                                 (mapcar (compose #'url-encode #'cdr) parameters)))))
 
-(defun http-request (uri &key (request-method :get) parameters drakma-args)
-  ;; TODO handle redirects properly
-  (let* ((param-string-encoded (alist->query-string parameters :include-leading-ampersand nil :url-encode t)))
-    (case request-method
-      (:get 
-        (apply #'drakma:http-request
-	       (uri-with-additional-query-part uri param-string-encoded)
-               :method request-method
-               drakma-args))
-      (:post
-        (apply #'drakma:http-request
-               uri
-               :method request-method
-               :content param-string-encoded
-               drakma-args))
-      (:auth
-        (apply #'drakma:http-request
-               uri
-               :method :get
-               :additional-headers `(("Authorization" . ,(build-auth-string parameters)))
-               drakma-args)))))
+(defun http-request
+    (uri &key (auth-location :header) (method :get) auth-parameters parameters additional-headers drakma-args)
+  (apply #'drakma:http-request
+         uri
+         :method method
+         :parameters (if (eq auth-location :parameters)
+                         (append parameters auth-parameters)
+                         parameters)
+         :additional-headers (if (eq auth-location :header)
+                                 (cons `("Authorization" . ,(build-auth-string auth-parameters))
+                                       additional-headers)
+                                 additional-headers)
+         drakma-args))
 
 (defun generate-auth-parameters
     (consumer signature-method timestamp version &optional token)
@@ -60,8 +52,7 @@ it has query params already they are added onto it."
                                   callback-uri
                                   additional-headers
                                   (signature-method :hmac-sha1))
-  "Additional parameters will be stored in the USER-DATA slot of the
-token."
+  "Additional parameters will be stored in the USER-DATA slot of the token."
   ;; TODO: support 1.0a too
   (let* ((auth-parameters (cons `("oauth_callback" . ,(or callback-uri "oob"))
                                 (generate-auth-parameters consumer-token
@@ -69,22 +60,18 @@ token."
                                                           timestamp
                                                           version)))
          (sbs (signature-base-string :uri uri :request-method request-method
-                                     :parameters (sort-parameters (append user-parameters auth-parameters))))
+                                     :parameters (sort-parameters (copy-alist (append user-parameters auth-parameters)))))
          (key (hmac-key (token-secret consumer-token)))
          (signature (encode-signature (hmac-sha1 sbs key) nil))
          (signed-parameters (cons `("oauth_signature" . ,signature) auth-parameters)))
     (multiple-value-bind (body status)
-        (apply #'drakma:http-request
-               uri
-               :method request-method
-               :parameters (if (eq auth-location :parameters)
-                               (append user-parameters auth-parameters)
-                               user-parameters)
-               :additional-headers (if (eq auth-location :header)
-                                       (append additional-headers
-                                               `(("Authorization" . ,(build-auth-string signed-parameters))))
-                                       additional-headers)
-               drakma-args)
+        (http-request uri
+                      :method request-method
+                      :auth-location auth-location
+                      :auth-parameters signed-parameters
+                      :parameters user-parameters
+                      :additional-headers additional-headers
+                      :drakma-args drakma-args)
       (if (eql status 200)
           (let* ((response (query-string->alist (map 'string #'code-char body)))
                  (key (cdr (assoc "oauth_token" response :test #'equal)))
@@ -147,10 +134,10 @@ Returns the authorized token or NIL if the token couldn't be found."
   (setf (request-token-authorized-p request-token) t)
   request-token)
 
-
 (defun obtain-access-token (uri request-or-access-token &key
                             (consumer-token (token-consumer request-or-access-token))
                             (request-method :post)
+                            (auth-location :header)
                             (version :1.0)
                             (timestamp (get-unix-time))
                             drakma-args
@@ -178,9 +165,11 @@ token. POST is recommended as request method. [6.3.1]" ; TODO 1.0a section numbe
            (signature (encode-signature (hmac-sha1 sbs key) nil))
            (signed-parameters (cons `("oauth_signature" . ,signature) parameters)))
       (multiple-value-bind (body status)
-          (apply #'drakma:http-request uri :method request-method
-                                           :parameters signed-parameters
-                                           drakma-args)
+          (http-request uri
+                        :method request-method
+                        :auth-location auth-location
+                        :auth-parameters signed-parameters
+                        :drakma-args drakma-args)
         (if (eql status 200)
             (let ((response (query-string->alist (if (stringp body)
                                                      body
@@ -244,8 +233,10 @@ token. POST is recommended as request method. [6.3.1]" ; TODO 1.0a section numbe
                                   on-refresh
                                   (timestamp (get-unix-time))
                                   user-parameters
+                                  additional-headers
                                   (version :1.0)
                                   drakma-args
+                                  (auth-location :header)
                                   (request-method :get)
                                   (signature-method :hmac-sha1))
   "Access the protected resource at URI using ACCESS-TOKEN.
@@ -257,25 +248,24 @@ request sent again using the new token. ON-REFRESH will be called
 whenever the access token is renewed."
   (setf access-token (maybe-refresh-access-token access-token on-refresh))
   (multiple-value-bind (normalized-uri query-string-parameters) (normalize-uri uri)
-    (let* ((parameters (append query-string-parameters
-                               user-parameters
-                               (generate-auth-parameters consumer-token
-                                                         signature-method
-                                                         timestamp
-                                                         version
-                                                         access-token)))
+    (let* ((auth-parameters (generate-auth-parameters consumer-token
+                                                      signature-method
+                                                      timestamp
+                                                      version
+                                                      access-token))
            (sbs (signature-base-string :uri normalized-uri
-                                       :request-method (if (eq request-method :auth)
-                                                         :get
-                                                         request-method)
-                                       :parameters (sort-parameters (copy-alist parameters))))
+                                       :request-method request-method
+                                       :parameters (sort-parameters (copy-alist (append query-string-parameters user-parameters auth-parameters)))))
            (key (hmac-key (token-secret consumer-token) (token-secret access-token)))
            (signature (encode-signature (hmac-sha1 sbs key) nil))
-           (signed-parameters (cons `("oauth_signature" . ,signature) parameters)))
+           (signed-parameters (cons `("oauth_signature" . ,signature) auth-parameters)))
       (multiple-value-bind (body status headers)
-          (http-request normalized-uri
-                        :request-method request-method
-                        :parameters signed-parameters
+          (http-request uri
+                        :method request-method
+                        :auth-location auth-location
+                        :auth-parameters signed-parameters
+                        :parameters user-parameters
+                        :additional-headers additional-headers
                         :drakma-args drakma-args)
         (if (eql status 200)
           (values body status)
