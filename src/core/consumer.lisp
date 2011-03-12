@@ -40,6 +40,18 @@ it has query params already they are added onto it."
                :additional-headers `(("Authorization" . ,(build-auth-string parameters)))
                drakma-args)))))
 
+(defun generate-auth-parameters
+    (consumer signature-method timestamp version &optional token)
+  (let ((parameters `(("oauth_consumer_key" . ,(token-key consumer))
+                      ("oauth_signature_method" . ,(string signature-method))
+                      ("oauth_timestamp" . ,(princ-to-string timestamp))
+                      ("oauth_nonce" . ,(princ-to-string
+                                         (random most-positive-fixnum)))
+                      ("oauth_version" . ,(princ-to-string version)))))
+    (if token
+        (cons `("oauth_token" . ,(url-decode (token-key token))) parameters)
+        parameters)))
+
 (defun obtain-request-token (uri consumer-token
                              &key (version :1.0) user-parameters drakma-args
                                   (timestamp (get-unix-time))
@@ -51,12 +63,11 @@ it has query params already they are added onto it."
   "Additional parameters will be stored in the USER-DATA slot of the
 token."
   ;; TODO: support 1.0a too
-  (let* ((auth-parameters `(("oauth_consumer_key" . ,(token-key consumer-token))
-                            ("oauth_signature_method" . ,(string signature-method))
-                            ("oauth_callback" . ,(or callback-uri "oob"))
-                            ("oauth_timestamp" . ,(princ-to-string timestamp))
-                            ("oauth_nonce" . ,(princ-to-string (random most-positive-fixnum)))
-                            ("oauth_version" . ,(princ-to-string version))))
+  (let* ((auth-parameters (cons `("oauth_callback" . ,(or callback-uri "oob"))
+                                (generate-auth-parameters consumer-token
+                                                          signature-method
+                                                          timestamp
+                                                          version)))
          (sbs (signature-base-string :uri uri :request-method request-method
                                      :parameters (sort-parameters (append user-parameters auth-parameters))))
          (key (hmac-key (token-secret consumer-token)))
@@ -150,12 +161,11 @@ token. POST is recommended as request method. [6.3.1]" ; TODO 1.0a section numbe
     (unless refresh-p
       (assert (request-token-authorized-p request-or-access-token)))
     (let* ((parameters (append
-                         `(("oauth_consumer_key" . ,(token-key consumer-token))
-                           ("oauth_token" . ,(url-decode (token-key request-or-access-token)))
-                           ("oauth_signature_method" . ,(string signature-method))
-                           ("oauth_timestamp" . ,(princ-to-string timestamp))
-                           ("oauth_nonce" . ,(princ-to-string (random most-positive-fixnum)))
-                           ("oauth_version" . ,(princ-to-string version)))
+                        (generate-auth-parameters consumer-token
+                                                  signature-method
+                                                  timestamp
+                                                  version
+                                                  request-or-access-token)
                          (if refresh-p
                            `(("oauth_session_handle" . ,(access-token-session-handle
                                                           request-or-access-token)))
@@ -249,12 +259,11 @@ whenever the access token is renewed."
   (multiple-value-bind (normalized-uri query-string-parameters) (normalize-uri uri)
     (let* ((parameters (append query-string-parameters
                                user-parameters
-                               `(("oauth_consumer_key" . ,(token-key consumer-token))
-                                 ("oauth_token" . ,(token-key access-token))
-                                 ("oauth_signature_method" . ,(string signature-method))
-                                 ("oauth_timestamp" . ,(princ-to-string timestamp))
-                                 ("oauth_nonce" . ,(princ-to-string (random most-positive-fixnum)))
-                                 ("oauth_version" . ,(princ-to-string version)))))
+                               (generate-auth-parameters consumer-token
+                                                         signature-method
+                                                         timestamp
+                                                         version
+                                                         access-token)))
            (sbs (signature-base-string :uri normalized-uri
                                        :request-method (if (eq request-method :auth)
                                                          :get
