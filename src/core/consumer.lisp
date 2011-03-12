@@ -42,40 +42,50 @@ it has query params already they are added onto it."
 
 (defun obtain-request-token (uri consumer-token
                              &key (version :1.0) user-parameters drakma-args
-                                  (timestamp (get-unix-time)) (request-method :post)
+                                  (timestamp (get-unix-time))
+                                  (auth-location :header)
+                                  (request-method :post)
                                   callback-uri
+                                  additional-headers
                                   (signature-method :hmac-sha1))
   "Additional parameters will be stored in the USER-DATA slot of the
 token."
   ;; TODO: support 1.0a too
-  (let* ((parameters (append user-parameters
-                             `(("oauth_consumer_key" . ,(token-key consumer-token))
-                               ("oauth_signature_method" . ,(string signature-method))
-                               ("oauth_callback" . ,(or callback-uri "oob"))
-                               ("oauth_timestamp" . ,(princ-to-string timestamp))
-                               ("oauth_nonce" . ,(princ-to-string (random most-positive-fixnum)))
-                               ("oauth_version" . ,(princ-to-string version)))))
+  (let* ((auth-parameters `(("oauth_consumer_key" . ,(token-key consumer-token))
+                            ("oauth_signature_method" . ,(string signature-method))
+                            ("oauth_callback" . ,(or callback-uri "oob"))
+                            ("oauth_timestamp" . ,(princ-to-string timestamp))
+                            ("oauth_nonce" . ,(princ-to-string (random most-positive-fixnum)))
+                            ("oauth_version" . ,(princ-to-string version))))
          (sbs (signature-base-string :uri uri :request-method request-method
-                                     :parameters (sort-parameters (copy-alist parameters))))
+                                     :parameters (sort-parameters (append user-parameters auth-parameters))))
          (key (hmac-key (token-secret consumer-token)))
          (signature (encode-signature (hmac-sha1 sbs key) nil))
-         (signed-parameters (cons `("oauth_signature" . ,signature) parameters)))
+         (signed-parameters (cons `("oauth_signature" . ,signature) auth-parameters)))
     (multiple-value-bind (body status)
-        (apply #'drakma:http-request uri :method request-method
-                                         :parameters signed-parameters
-                                         drakma-args)
+        (apply #'drakma:http-request
+               uri
+               :method request-method
+               :parameters (if (eq auth-location :parameters)
+                               (append user-parameters auth-parameters)
+                               user-parameters)
+               :additional-headers (if (eq auth-location :header)
+                                       (append additional-headers
+                                               `(("Authorization" . ,(build-auth-string signed-parameters))))
+                                       additional-headers)
+               drakma-args)
       (if (eql status 200)
-         (let* ((response (query-string->alist body))
-                (key (cdr (assoc "oauth_token" response :test #'equal)))
-                (secret (cdr (assoc "oauth_token_secret" response :test #'equal)))
-                (user-data (set-difference response '("oauth_token" "oauth_token_secret")
-                                           :test (lambda (e1 e2)
-                                                   (equal (car e1) e2)))))
-           (assert key)
-           (assert secret)
-           (make-request-token :consumer consumer-token :key key :secret secret ;; TODO url-decode
-                               :callback-uri callback-uri :user-data user-data))
-         (error "Server returned status ~D" status))))) ; TODO: elaborate
+          (let* ((response (query-string->alist (map 'string #'code-char body)))
+                 (key (cdr (assoc "oauth_token" response :test #'equal)))
+                 (secret (cdr (assoc "oauth_token_secret" response :test #'equal)))
+                 (user-data (set-difference response '("oauth_token" "oauth_token_secret")
+                                            :test (lambda (e1 e2)
+                                                    (equal (car e1) e2)))))
+            (assert key)
+            (assert secret)
+            (make-request-token :consumer consumer-token :key key :secret secret ;; TODO url-decode
+                                :callback-uri (puri:uri callback-uri) :user-data user-data))
+          (error "Server returned status ~D" status))))) ; TODO: elaborate
 
 
 (defun make-authorization-uri (uri request-token &key (version :1.0) callback-uri user-parameters)
