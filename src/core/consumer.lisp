@@ -97,7 +97,7 @@ for a redirect. [6.2.1] in 1.0." ; TODO 1.0a section number
                                (list (cons "oauth_token" (token-key request-token))))
                              (when callback-uri
                                (list (cons "oauth_callback" callback-uri)))))
-         (puri (puri:parse-uri uri)))
+         (puri (puri:copy-uri (puri:parse-uri uri))))
     (setf (puri:uri-query puri) (concatenate 'string (or (puri:uri-query puri) "")
                                                      (alist->query-string parameters)))
     puri))
