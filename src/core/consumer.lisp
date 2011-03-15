@@ -54,7 +54,8 @@ it has query params already they are added onto it."
                                   (signature-method :hmac-sha1))
   "Additional parameters will be stored in the USER-DATA slot of the token."
   ;; TODO: support 1.0a too
-  (let* ((auth-parameters (cons `("oauth_callback" . ,(or callback-uri "oob"))
+  (let* ((callback-uri (or callback-uri "oob"))
+         (auth-parameters (cons `("oauth_callback" . ,callback-uri)
                                 (generate-auth-parameters consumer-token
                                                           signature-method
                                                           timestamp
