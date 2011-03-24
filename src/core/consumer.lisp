@@ -75,7 +75,9 @@ it has query params already they are added onto it."
                       :additional-headers additional-headers
                       :drakma-args drakma-args)
       (if (eql status 200)
-          (let* ((response (query-string->alist (map 'string #'code-char body)))
+          (let* ((response (query-string->alist (typecase body
+                                                  (string body)
+                                                  (t (map 'string #'code-char body)))))
                  (key (cdr (assoc "oauth_token" response :test #'equal)))
                  (secret (cdr (assoc "oauth_token_secret" response :test #'equal)))
                  (user-data (set-difference response '("oauth_token" "oauth_token_secret")
