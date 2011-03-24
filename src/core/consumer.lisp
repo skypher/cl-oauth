@@ -30,6 +30,7 @@ it has query params already they are added onto it."
                                  (cons `("Authorization" . ,(build-auth-string auth-parameters))
                                        additional-headers)
                                  additional-headers)
+         :redirect-methods '(:get :post :head)
          drakma-args))
 
 (defun generate-auth-parameters
