@@ -102,8 +102,12 @@ for a redirect. [6.2.1] in 1.0." ; TODO 1.0a section number
                              (when callback-uri
                                (list (cons "oauth_callback" callback-uri)))))
          (puri (puri:copy-uri (puri:parse-uri uri))))
-    (setf (puri:uri-query puri) (concatenate 'string (or (puri:uri-query puri) "")
-                                                     (alist->query-string parameters)))
+    (setf (puri:uri-query puri)
+          (if (puri:uri-query puri)
+              (concatenate 'string
+                           (puri:uri-query puri)
+                           (alist->query-string parameters))
+              (alist->query-string parameters :include-leading-ampersand nil)))
     puri))
 
 
