@@ -32,5 +32,5 @@
 
 (defmacro protocol-assert (&body body)
   `(unless (progn ,@body)
-     (raise-error 'bad-request)))
+     (raise-error 'bad-request "Failed protocol assertion")))
 

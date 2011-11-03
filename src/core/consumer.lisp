@@ -18,64 +18,76 @@ it has query params already they are added onto it."
                                 (mapcar (compose #'url-encode #'car) parameters)
                                 (mapcar (compose #'url-encode #'cdr) parameters)))))
 
-(defun http-request (uri &key (request-method :get) parameters drakma-args)
-  ;; TODO handle redirects properly
-  (let* ((param-string-encoded (alist->query-string parameters :include-leading-ampersand nil :url-encode t)))
-    (case request-method
-      (:get 
-        (apply #'drakma:http-request
-	       (uri-with-additional-query-part uri param-string-encoded)
-               :method request-method
-               drakma-args))
-      (:post
-        (apply #'drakma:http-request
-               uri
-               :method request-method
-               :content param-string-encoded
-               drakma-args))
-      (:auth
-        (apply #'drakma:http-request
-               uri
-               :method :get
-               :additional-headers `(("Authorization" . ,(build-auth-string parameters)))
-               drakma-args)))))
+(defun http-request
+    (uri &key (auth-location :header) (method :get) auth-parameters parameters additional-headers drakma-args)
+  (apply #'drakma:http-request
+         uri
+         :method method
+         :parameters (if (eq auth-location :parameters)
+                         (append parameters auth-parameters)
+                         parameters)
+         :additional-headers (if (eq auth-location :header)
+                                 (cons `("Authorization" . ,(build-auth-string auth-parameters))
+                                       additional-headers)
+                                 additional-headers)
+         :redirect-methods '(:get :post :head)
+         drakma-args))
+
+(defun generate-auth-parameters
+    (consumer signature-method timestamp version &optional token)
+  (let ((parameters `(("oauth_consumer_key" . ,(token-key consumer))
+                      ("oauth_signature_method" . ,(string signature-method))
+                      ("oauth_timestamp" . ,(princ-to-string timestamp))
+                      ("oauth_nonce" . ,(princ-to-string
+                                         (random most-positive-fixnum)))
+                      ("oauth_version" . ,(princ-to-string version)))))
+    (if token
+        (cons `("oauth_token" . ,(url-decode (token-key token))) parameters)
+        parameters)))
 
 (defun obtain-request-token (uri consumer-token
                              &key (version :1.0) user-parameters drakma-args
-                                  (timestamp (get-unix-time)) (request-method :post)
+                                  (timestamp (get-unix-time))
+                                  (auth-location :header)
+                                  (request-method :post)
                                   callback-uri
+                                  additional-headers
                                   (signature-method :hmac-sha1))
-  "Additional parameters will be stored in the USER-DATA slot of the
-token."
+  "Additional parameters will be stored in the USER-DATA slot of the token."
   ;; TODO: support 1.0a too
-  (let* ((parameters (append user-parameters
-                             `(("oauth_consumer_key" . ,(token-key consumer-token))
-                               ("oauth_signature_method" . ,(string signature-method))
-                               ("oauth_callback" . ,(or callback-uri "oob"))
-                               ("oauth_timestamp" . ,(princ-to-string timestamp))
-                               ("oauth_nonce" . ,(princ-to-string (random most-positive-fixnum)))
-                               ("oauth_version" . ,(princ-to-string version)))))
+  (let* ((callback-uri (or callback-uri "oob"))
+         (auth-parameters (cons `("oauth_callback" . ,callback-uri)
+                                (generate-auth-parameters consumer-token
+                                                          signature-method
+                                                          timestamp
+                                                          version)))
          (sbs (signature-base-string :uri uri :request-method request-method
-                                     :parameters (sort-parameters (copy-alist parameters))))
+                                     :parameters (sort-parameters (copy-alist (append user-parameters auth-parameters)))))
          (key (hmac-key (token-secret consumer-token)))
          (signature (encode-signature (hmac-sha1 sbs key) nil))
-         (signed-parameters (cons `("oauth_signature" . ,signature) parameters)))
+         (signed-parameters (cons `("oauth_signature" . ,signature) auth-parameters)))
     (multiple-value-bind (body status)
-        (apply #'drakma:http-request uri :method request-method
-                                         :parameters signed-parameters
-                                         drakma-args)
+        (http-request uri
+                      :method request-method
+                      :auth-location auth-location
+                      :auth-parameters signed-parameters
+                      :parameters user-parameters
+                      :additional-headers additional-headers
+                      :drakma-args drakma-args)
       (if (eql status 200)
-         (let* ((response (query-string->alist body))
-                (key (cdr (assoc "oauth_token" response :test #'equal)))
-                (secret (cdr (assoc "oauth_token_secret" response :test #'equal)))
-                (user-data (set-difference response '("oauth_token" "oauth_token_secret")
-                                           :test (lambda (e1 e2)
-                                                   (equal (car e1) e2)))))
-           (assert key)
-           (assert secret)
-           (make-request-token :consumer consumer-token :key key :secret secret ;; TODO url-decode
-                               :callback-uri callback-uri :user-data user-data))
-         (error "Server returned status ~D" status))))) ; TODO: elaborate
+          (let* ((response (query-string->alist (typecase body
+                                                  (string body)
+                                                  (t (map 'string #'code-char body)))))
+                 (key (cdr (assoc "oauth_token" response :test #'equal)))
+                 (secret (cdr (assoc "oauth_token_secret" response :test #'equal)))
+                 (user-data (set-difference response '("oauth_token" "oauth_token_secret")
+                                            :test (lambda (e1 e2)
+                                                    (equal (car e1) e2)))))
+            (assert key)
+            (assert secret)
+            (make-request-token :consumer consumer-token :key key :secret secret ;; TODO url-decode
+                                :callback-uri (puri:uri callback-uri) :user-data user-data))
+          (error "Server returned status ~D" status))))) ; TODO: elaborate
 
 
 (defun make-authorization-uri (uri request-token &key (version :1.0) callback-uri user-parameters)
@@ -89,7 +101,7 @@ for a redirect. [6.2.1] in 1.0." ; TODO 1.0a section number
                                (list (cons "oauth_token" (token-key request-token))))
                              (when callback-uri
                                (list (cons "oauth_callback" callback-uri)))))
-         (puri (puri:parse-uri uri)))
+         (puri (puri:copy-uri (puri:parse-uri uri))))
     (setf (puri:uri-query puri) (concatenate 'string (or (puri:uri-query puri) "")
                                                      (alist->query-string parameters)))
     puri))
@@ -126,10 +138,10 @@ Returns the authorized token or NIL if the token couldn't be found."
   (setf (request-token-authorized-p request-token) t)
   request-token)
 
-
 (defun obtain-access-token (uri request-or-access-token &key
                             (consumer-token (token-consumer request-or-access-token))
                             (request-method :post)
+                            (auth-location :header)
                             (version :1.0)
                             (timestamp (get-unix-time))
                             drakma-args
@@ -140,12 +152,11 @@ token. POST is recommended as request method. [6.3.1]" ; TODO 1.0a section numbe
     (unless refresh-p
       (assert (request-token-authorized-p request-or-access-token)))
     (let* ((parameters (append
-                         `(("oauth_consumer_key" . ,(token-key consumer-token))
-                           ("oauth_token" . ,(url-decode (token-key request-or-access-token)))
-                           ("oauth_signature_method" . ,(string signature-method))
-                           ("oauth_timestamp" . ,(princ-to-string timestamp))
-                           ("oauth_nonce" . ,(princ-to-string (random most-positive-fixnum)))
-                           ("oauth_version" . ,(princ-to-string version)))
+                        (generate-auth-parameters consumer-token
+                                                  signature-method
+                                                  timestamp
+                                                  version
+                                                  request-or-access-token)
                          (if refresh-p
                            `(("oauth_session_handle" . ,(access-token-session-handle
                                                           request-or-access-token)))
@@ -158,11 +169,15 @@ token. POST is recommended as request method. [6.3.1]" ; TODO 1.0a section numbe
            (signature (encode-signature (hmac-sha1 sbs key) nil))
            (signed-parameters (cons `("oauth_signature" . ,signature) parameters)))
       (multiple-value-bind (body status)
-          (apply #'drakma:http-request uri :method request-method
-                                           :parameters signed-parameters
-                                           drakma-args)
+          (http-request uri
+                        :method request-method
+                        :auth-location auth-location
+                        :auth-parameters signed-parameters
+                        :drakma-args drakma-args)
         (if (eql status 200)
-           (let ((response (query-string->alist body)))
+            (let ((response (query-string->alist (if (stringp body)
+                                                     body
+                                                     (babel:octets-to-string body)))))
              (flet ((field (name)
                       (cdr (assoc name response :test #'equal))))
                (let ((key (field "oauth_token"))
@@ -222,8 +237,10 @@ token. POST is recommended as request method. [6.3.1]" ; TODO 1.0a section numbe
                                   on-refresh
                                   (timestamp (get-unix-time))
                                   user-parameters
+                                  additional-headers
                                   (version :1.0)
                                   drakma-args
+                                  (auth-location :header)
                                   (request-method :get)
                                   (signature-method :hmac-sha1))
   "Access the protected resource at URI using ACCESS-TOKEN.
@@ -235,26 +252,24 @@ request sent again using the new token. ON-REFRESH will be called
 whenever the access token is renewed."
   (setf access-token (maybe-refresh-access-token access-token on-refresh))
   (multiple-value-bind (normalized-uri query-string-parameters) (normalize-uri uri)
-    (let* ((parameters (append query-string-parameters
-                               user-parameters
-                               `(("oauth_consumer_key" . ,(token-key consumer-token))
-                                 ("oauth_token" . ,(token-key access-token))
-                                 ("oauth_signature_method" . ,(string signature-method))
-                                 ("oauth_timestamp" . ,(princ-to-string timestamp))
-                                 ("oauth_nonce" . ,(princ-to-string (random most-positive-fixnum)))
-                                 ("oauth_version" . ,(princ-to-string version)))))
+    (let* ((auth-parameters (generate-auth-parameters consumer-token
+                                                      signature-method
+                                                      timestamp
+                                                      version
+                                                      access-token))
            (sbs (signature-base-string :uri normalized-uri
-                                       :request-method (if (eq request-method :auth)
-                                                         :get
-                                                         request-method)
-                                       :parameters (sort-parameters (copy-alist parameters))))
+                                       :request-method request-method
+                                       :parameters (sort-parameters (copy-alist (append query-string-parameters user-parameters auth-parameters)))))
            (key (hmac-key (token-secret consumer-token) (token-secret access-token)))
            (signature (encode-signature (hmac-sha1 sbs key) nil))
-           (signed-parameters (cons `("oauth_signature" . ,signature) parameters)))
+           (signed-parameters (cons `("oauth_signature" . ,signature) auth-parameters)))
       (multiple-value-bind (body status headers)
-          (http-request normalized-uri
-                        :request-method request-method
-                        :parameters signed-parameters
+          (http-request uri
+                        :method request-method
+                        :auth-location auth-location
+                        :auth-parameters signed-parameters
+                        :parameters user-parameters
+                        :additional-headers additional-headers
                         :drakma-args drakma-args)
         (if (eql status 200)
           (values body status)

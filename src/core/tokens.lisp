@@ -13,14 +13,15 @@
 ;;; TODO: token registry GC
 
 ;;; default token values
-(defun random-key ()
-  "key")
+(let ((random-state (make-random-state t)))
+  (defun random-key ()
+    (format nil "~36,25,'0r" (random (expt 36 25) random-state)))
 
-(defun random-secret ()
-  "secret")
+  (defun random-secret ()
+    (format nil "~36,25,'0r" (random (expt 36 25) random-state)))
 
-(defun random-verification-code ()
-  "verification_code")
+  (defun random-verification-code ()
+    (format nil "~36,25,'0r" (random (expt 36 25) random-state))))
 
 
 ;;; token base class
