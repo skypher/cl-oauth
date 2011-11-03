@@ -20,10 +20,6 @@
       (error type :reason-phrase reason-phrase))
     (error type)))
 
-;; TODO what follows is Hunchentoot-specific
-(pushnew 400 hunchentoot:*approved-return-codes*)
-(pushnew 401 hunchentoot:*approved-return-codes*)
-
 (defun default-error-handler (condition)
   "Default error handler for conditions of type HTTP-ERROR."
   (check-type condition http-error)
