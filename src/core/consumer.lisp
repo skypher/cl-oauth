@@ -20,25 +20,26 @@ it has query params already they are added onto it."
 
 (defun http-request (uri &key (request-method :get) parameters drakma-args)
   ;; TODO handle redirects properly
-  (let* ((param-string-encoded (alist->query-string parameters :include-leading-ampersand nil :url-encode t)))
-    (case request-method
-      (:get 
-        (apply #'drakma:http-request
-	       (uri-with-additional-query-part uri param-string-encoded)
-               :method request-method
-               drakma-args))
-      (:post
-        (apply #'drakma:http-request
-               uri
-               :method request-method
-               :content param-string-encoded
-               drakma-args))
-      (:auth
-        (apply #'drakma:http-request
-               uri
-               :method :get
-               :additional-headers `(("Authorization" . ,(build-auth-string parameters)))
-               drakma-args)))))
+  (case request-method
+    (:get 
+     (apply #'drakma:http-request 
+	    uri
+	    :parameters parameters
+	    :method request-method
+	    drakma-args))
+    (:post
+     (apply #'drakma:http-request
+	    uri
+	    :method request-method
+	    :parameters parameters
+	    ;;:content param-string-encoded
+	    drakma-args))
+    (:auth
+     (apply #'drakma:http-request
+	    uri
+	    :method :get
+	    :additional-headers `(("Authorization" . ,(build-auth-string parameters)))
+	    drakma-args))))
 
 (defun obtain-request-token (uri consumer-token
                              &key (version :1.0) user-parameters drakma-args
