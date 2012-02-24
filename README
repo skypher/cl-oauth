@@ -39,16 +39,18 @@ Both:
 
   * crypto signatures different from HMAC-SHA1. It's easy to use
     other digests and MACs via Ironclad but RSA needs to have
-    padding implemented). [9.3]
+    padding implemented. [9.3]
 
   * PLAINTEXT signature. Meh. [9.4]
 
   * POST and Auth requests are hardly tested yet.
 
 
-People who contributed in some way to this library:
+People who contributed in a substantial way to this library:
 
   * Leslie P. Polzer <polzer@gnu.org>: base implementation.
+
+See also revision log for minor contributions.
 
 
 TODO (apart from spec things not implemented yet):

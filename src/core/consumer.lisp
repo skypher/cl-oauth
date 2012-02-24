@@ -87,7 +87,7 @@ it has query params already they are added onto it."
             (assert secret)
             (make-request-token :consumer consumer-token :key key :secret secret ;; TODO url-decode
                                 :callback-uri (puri:uri callback-uri) :user-data user-data))
-          (error "Server returned status ~D" status))))) ; TODO: elaborate
+          (error "Server returned status ~D: ~A" status body))))) 
 
 
 (defun make-authorization-uri (uri request-token &key (version :1.0) callback-uri user-parameters)
