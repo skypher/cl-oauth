@@ -41,26 +41,29 @@
                                                            (:file "service-provider"
                                                                   :depends-on ("tokens" "parameters"
                                                                                "error-handling")))
-                                              :depends-on ("package" "util"))))
-               (:module "test"
-                        :components ((:file "package")
-                                     (:module "core"
-                                              :components ((:file "request-adapter")
-                                                           (:file "parameters"
-                                                                  :depends-on ("request-adapter"))
-                                                           (:file "signature"
-                                                                  :depends-on ("request-adapter"))
-                                                           (:file "tokens")
-                                                           (:file "service-provider"
-                                                                  :depends-on ("request-adapter")))
-                                              :depends-on ("package")))
-                        :depends-on ("src")))
+                                              :depends-on ("package" "util")))))
   :depends-on (:ironclad :cl-base64 :babel
                :closer-mop
                :alexandria :anaphora :f-underscore :split-sequence
                :trivial-garbage
-               :fiveam
                :drakma
                :puri :hunchentoot)
-  :in-order-to ((asdf:test-op (load-op "cl-oauth"))))
+  :in-order-to ((test-op (load-op cl-oauth.tests))))
 
+(defmethod operation-done-p ((op test-op) (c (eql (find-system :cl-oauth))))
+  (values nil))
+
+(defsystem :cl-oauth.tests
+  :depends-on (:fiveam :cl-oauth)
+  :pathname "test/"
+  :components ((:file "package")
+               (:module "core"
+                        :components ((:file "request-adapter")
+                                     (:file "parameters"
+                                            :depends-on ("request-adapter"))
+                                     (:file "signature"
+                                            :depends-on ("request-adapter"))
+                                     (:file "tokens")
+                                     (:file "service-provider"
+                                            :depends-on ("request-adapter")))
+                        :depends-on ("package"))))
