@@ -52,7 +52,8 @@ it has query params already they are added onto it."
                                   (request-method :post)
                                   callback-uri
                                   additional-headers
-                                  (signature-method :hmac-sha1))
+                                  (signature-method :hmac-sha1)
+                                  (include-user-parameters-in-signature-p t))
   "Additional parameters will be stored in the USER-DATA slot of the token."
   ;; TODO: support 1.0a too
   (let* ((callback-uri (or callback-uri "oob"))
@@ -62,7 +63,9 @@ it has query params already they are added onto it."
                                                           timestamp
                                                           version)))
          (sbs (signature-base-string :uri uri :request-method request-method
-                                     :parameters (sort-parameters (copy-alist (append user-parameters auth-parameters)))))
+                                     :parameters (sort-parameters (copy-alist (if include-user-parameters-in-signature-p
+                                                                                  (append user-parameters auth-parameters)
+                                                                                  auth-parameters)))))
          (key (hmac-key (token-secret consumer-token)))
          (signature (encode-signature (hmac-sha1 sbs key) nil))
          (signed-parameters (cons `("oauth_signature" . ,signature) auth-parameters)))
@@ -236,17 +239,20 @@ token. POST is recommended as request method. [6.3.1]" ; TODO 1.0a section numbe
   (let ((from-headers (get-problem-report-from-headers headers)))
     from-headers))
 
-(defun access-protected-resource (uri access-token &rest kwargs &key
-                                  (consumer-token (token-consumer access-token))
-                                  on-refresh
-                                  (timestamp (get-unix-time))
-                                  user-parameters
-                                  additional-headers
-                                  (version :1.0)
-                                  drakma-args
-                                  (auth-location :header)
-                                  (request-method :get)
-                                  (signature-method :hmac-sha1))
+(defun access-protected-resource (uri access-token
+                                  &rest kwargs
+                                  &key
+                                    (consumer-token (token-consumer access-token))
+                                    on-refresh
+                                    (timestamp (get-unix-time))
+                                    user-parameters
+                                    additional-headers
+                                    (version :1.0)
+                                    drakma-args
+                                    (auth-location :header)
+                                    (request-method :get)
+                                    (signature-method :hmac-sha1)
+                                    (include-user-parameters-in-signature-p t))
   "Access the protected resource at URI using ACCESS-TOKEN.
 
 If the token contains OAuth Session information it will be checked for
@@ -263,7 +269,9 @@ whenever the access token is renewed."
                                                       access-token))
            (sbs (signature-base-string :uri normalized-uri
                                        :request-method request-method
-                                       :parameters (sort-parameters (copy-alist (append query-string-parameters user-parameters auth-parameters)))))
+                                       :parameters (sort-parameters (copy-alist (if include-user-parameters-in-signature-p
+                                                                                    (append query-string-parameters user-parameters auth-parameters)
+                                                                                    auth-parameters)))))
            (key (hmac-key (token-secret consumer-token) (token-secret access-token)))
            (signature (encode-signature (hmac-sha1 sbs key) nil))
            (signed-parameters (cons `("oauth_signature" . ,signature) auth-parameters)))
