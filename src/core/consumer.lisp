@@ -93,7 +93,7 @@ it has query params already they are added onto it."
           (error "Server returned status ~D: ~A" status body))))) 
 
 
-(defun make-authorization-uri (uri request-token &key (version :1.0) callback-uri user-parameters)
+(defun make-authorization-uri (uri request-token &key callback-uri user-parameters)
   "Return the service provider's authorization URI. Use the resulting PURI
 for a redirect. [6.2.1] in 1.0." ; TODO 1.0a section number
   ;; TODO: does 1.0 support oob callbacks?
