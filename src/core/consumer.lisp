@@ -284,12 +284,21 @@ whenever the access token is renewed."
            (key (hmac-key (token-secret consumer-token) (token-secret access-token)))
            (signature (encode-signature (hmac-sha1 sbs key) nil))
            (signed-parameters (cons `("oauth_signature" . ,signature) auth-parameters)))
+      (when (and (eql request-method :post)
+                 user-parameters)
+        (assert (and (not (getf drakma-args :content-type))
+                     (not (getf drakma-args :content)))
+                () "User parameters and content/content-type in drakma arguments cannot be combined")
+        (setf drakma-args (list* :content-type "application/x-www-form-urlencoded"
+                                 :content (alist->query-string user-parameters
+                                                               :url-encode t
+                                                               :include-leading-ampersand nil)
+                                 drakma-args)))
       (multiple-value-bind (body status headers)
           (http-request uri
                         :method request-method
                         :auth-location auth-location
                         :auth-parameters signed-parameters
-                        :parameters user-parameters
                         :additional-headers additional-headers
                         :drakma-args drakma-args)
         (if (eql status 200)
