@@ -9,7 +9,7 @@
                              (normalize-uri uri))
                        "&" (url-encode
                              (alist->query-string parameters
-						  :url-encode t
+                                                  :url-encode t
                                                   :include-leading-ampersand nil))))
 
 (declaim (notinline hmac-key)) ; we want to trace this when debugging. 

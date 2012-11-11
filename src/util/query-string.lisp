@@ -3,7 +3,11 @@
 
 (defun alist->query-string (alist &key (include-leading-ampersand t) url-encode)
   (let* ((plist (splice-alist alist))
-	 (plist* (if url-encode (mapcar #'(lambda (item) (url-encode (string item))) plist) plist))
+	 (plist* (if url-encode
+                     (loop for (key value) on plist by #'cddr
+                           collect (url-encode (string key))
+                           collect (url-encode value))
+                     plist))
 	 (result (format nil "~{&~A=~A~}" plist*)))
     (subseq ; TODO: nsubseq http://darcs.informatimago.com/lisp/common-lisp/utility.lisp
       result

@@ -39,14 +39,14 @@
                                                  (port (second http-host)))
                                             (make-instance 'puri:uri
                                                            :scheme (etypecase hunchentoot:*acceptor*
-                                                                     (hunchentoot:acceptor :http)
-                                                                     (hunchentoot:ssl-acceptor :https))
+                                                                     (hunchentoot:ssl-acceptor :https)
+                                                                     (hunchentoot:acceptor :http))
                                                            :host hostname
                                                            :port port
                                                            :path (hunchentoot:script-name* request))))
                         :request-method-fn 'hunchentoot:request-method*
                         :abort-request-fn 'hunchentoot:abort-request-handler
-                        :auth-parameters-fn (lambda (request) nil) ; TODO
+                        :auth-parameters-fn (lambda (request) (declare (ignore request)) nil) ; TODO
                         :post-parameters-fn 'hunchentoot:post-parameters*
                         :get-parameters-fn 'hunchentoot:get-parameters*))
                                               

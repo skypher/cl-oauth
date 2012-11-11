@@ -63,6 +63,7 @@
       #:signature-base-string
       #:hmac-key
       #:hmac-sha1
+      #:encode-url
       #:encode-signature
       
       ;;; parameters
