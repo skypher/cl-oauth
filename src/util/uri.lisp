@@ -7,22 +7,27 @@
 
 ;; this function is taken from Hunchentoot but modified to
 ;; satisfy the OAuth spec demands.
-(defun url-encode (string &optional (external-format +utf-8+))
-  "URL-encodes a string using the external format EXTERNAL-FORMAT."
+(defun url-encode (input &optional (external-format +utf-8+))
+  "URL-encodes INPUT according to the percent encoding rules of
+  RFC5849 (section 3.6).  If a string is passed as INPUT, it is
+  encoded using the external format EXTERNAL-FORMAT.  If a vector of
+  bytes is passed, the values are used verbatim."
   (with-output-to-string (s)
-    (loop for c across string
-          for index from 0
-          do (cond ((or (char<= #\0 c #\9)
-                        (char<= #\a c #\z)
-                        (char<= #\A c #\Z)
-                        (find c "-_.~" :test #'char=))
-                     (write-char c s))
-                   (t (loop for octet across (flexi-streams:string-to-octets string
-                                                                             :start index
-                                                                             :end (1+ index)
-                                                                             :external-format external-format)
-                            do (format s "%~2,'0x" octet)))))))
-
+    (loop for octet across (etypecase input
+                             (string
+                              (flexi-streams:string-to-octets input :external-format external-format))
+                             ((or (array (integer) (*))
+                                  (array (unsigned-byte 8) (*)))
+                              input)
+                             (null
+                              #()))
+          for char = (code-char octet)
+          do (if (or (char<= #\0 char #\9)
+                     (char<= #\a char #\z)
+                     (char<= #\A char #\Z)
+                     (find char "-_.~" :test #'char=))
+                 (write-char char s)
+                 (format s "%~2,'0x" octet)))))
 
 (defmacro upgrade-vector (vector new-type &key converter)
   "Returns a vector with the same length and the same elements as

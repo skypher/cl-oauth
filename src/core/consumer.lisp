@@ -93,7 +93,7 @@ it has query params already they are added onto it."
           (error "Server returned status ~D: ~A" status body))))) 
 
 
-(defun make-authorization-uri (uri request-token &key (version :1.0) callback-uri user-parameters)
+(defun make-authorization-uri (uri request-token &key callback-uri user-parameters)
   "Return the service provider's authorization URI. Use the resulting PURI
 for a redirect. [6.2.1] in 1.0." ; TODO 1.0a section number
   ;; TODO: does 1.0 support oob callbacks?
@@ -151,12 +151,14 @@ Returns the authorized token or NIL if the token couldn't be found."
                             (auth-location :header)
                             (version :1.0)
                             (timestamp (get-unix-time))
+                            xauth-username xauth-password
                             drakma-args
 			    (signature-method :hmac-sha1))
   "Additional parameters will be stored in the USER-DATA slot of the
 token. POST is recommended as request method. [6.3.1]" ; TODO 1.0a section number
   (let ((refresh-p (typep request-or-access-token 'access-token)))
-    (unless refresh-p
+    (when (and request-or-access-token
+               (not refresh-p))
       (assert (request-token-authorized-p request-or-access-token)))
     (let* ((parameters (append
                         (generate-auth-parameters consumer-token
@@ -164,15 +166,22 @@ token. POST is recommended as request method. [6.3.1]" ; TODO 1.0a section numbe
                                                   timestamp
                                                   version
                                                   request-or-access-token)
-                         (if refresh-p
+                        (cond
+                          (refresh-p
                            `(("oauth_session_handle" . ,(access-token-session-handle
-                                                          request-or-access-token)))
+                                                         request-or-access-token))))
+                          ((null request-or-access-token)
+                           `(("x_auth_mode" . "client_auth")
+                             ("x_auth_username" . ,xauth-username)
+                             ("x_auth_password" . ,xauth-password)))
+                          (t
                            (awhen (request-token-verification-code request-or-access-token)
-                             `(("oauth_verifier" . ,it))))))
+                             `(("oauth_verifier" . ,it)))))))
            (sbs (signature-base-string :uri uri :request-method request-method
-                                      :parameters (sort-parameters (copy-alist parameters))))
+                                       :parameters (sort-parameters (copy-alist parameters))))
            (key (hmac-key (token-secret consumer-token)
-                          (url-decode (token-secret request-or-access-token))))
+                          (when request-or-access-token
+                            (url-decode (token-secret request-or-access-token)))))
            (signature (encode-signature (hmac-sha1 sbs key) nil))
            (signed-parameters (cons `("oauth_signature" . ,signature) parameters)))
       (multiple-value-bind (body status)
@@ -185,29 +194,29 @@ token. POST is recommended as request method. [6.3.1]" ; TODO 1.0a section numbe
             (let ((response (query-string->alist (if (stringp body)
                                                      body
                                                      (babel:octets-to-string body)))))
-             (flet ((field (name)
-                      (cdr (assoc name response :test #'equal))))
-               (let ((key (field "oauth_token"))
-                     (secret (field "oauth_token_secret"))
-                     (session-handle (field "oauth_session_handle"))
-                     (expires (awhen (field "oauth_expires_in")
-                                (parse-integer it)))
-                     (authorization-expires (awhen (field "oauth_authorization_expires_in")
-                                              (parse-integer it)))
-                     (user-data (remove-oauth-parameters response)))
-                 (assert key)
-                 (assert secret)
-                 (make-access-token :consumer consumer-token
-                                    :key (url-decode key)
-                                    :secret (url-decode secret)
-                                    :session-handle session-handle
-                                    :expires (awhen expires
-                                               (+ (get-universal-time) it))
-                                    :authorization-expires (awhen authorization-expires
-                                                             (+ (get-universal-time) it))
-                                    :origin-uri uri
-                                    :user-data user-data))))
-           (error "Couldn't obtain access token: server returned status ~D" status))))))
+              (flet ((field (name)
+                       (cdr (assoc name response :test #'equal))))
+                (let ((key (field "oauth_token"))
+                      (secret (field "oauth_token_secret"))
+                      (session-handle (field "oauth_session_handle"))
+                      (expires (awhen (field "oauth_expires_in")
+                                 (parse-integer it)))
+                      (authorization-expires (awhen (field "oauth_authorization_expires_in")
+                                               (parse-integer it)))
+                      (user-data (remove-oauth-parameters response)))
+                  (assert key)
+                  (assert secret)
+                  (make-access-token :consumer consumer-token
+                                     :key (url-decode key)
+                                     :secret (url-decode secret)
+                                     :session-handle session-handle
+                                     :expires (awhen expires
+                                                (+ (get-universal-time) it))
+                                     :authorization-expires (awhen authorization-expires
+                                                              (+ (get-universal-time) it))
+                                     :origin-uri uri
+                                     :user-data user-data))))
+            (error "Couldn't obtain access token: server returned status ~D" status))))))
 
 (defun refresh-access-token (access-token)
   (obtain-access-token (access-token-origin-uri access-token) access-token))
@@ -275,12 +284,21 @@ whenever the access token is renewed."
            (key (hmac-key (token-secret consumer-token) (token-secret access-token)))
            (signature (encode-signature (hmac-sha1 sbs key) nil))
            (signed-parameters (cons `("oauth_signature" . ,signature) auth-parameters)))
+      (when (and (eql request-method :post)
+                 user-parameters)
+        (assert (and (not (getf drakma-args :content-type))
+                     (not (getf drakma-args :content)))
+                () "User parameters and content/content-type in drakma arguments cannot be combined")
+        (setf drakma-args (list* :content-type "application/x-www-form-urlencoded"
+                                 :content (alist->query-string user-parameters
+                                                               :url-encode t
+                                                               :include-leading-ampersand nil)
+                                 drakma-args)))
       (multiple-value-bind (body status headers)
           (http-request uri
                         :method request-method
                         :auth-location auth-location
                         :auth-parameters signed-parameters
-                        :parameters user-parameters
                         :additional-headers additional-headers
                         :drakma-args drakma-args)
         (if (eql status 200)
