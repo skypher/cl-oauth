@@ -32,13 +32,21 @@ it has query params already they are added onto it."
                                  additional-headers)
          drakma-args))
 
+;;; SBCL 1.1.6 on OS X does not generate proper random values with (random most-positive-fixnum).
+(defun generate-nonce (&optional (size 30))
+  (with-open-file (in "/dev/urandom" :direction :input :element-type '(unsigned-byte 8))
+    (with-output-to-string (out)
+      (loop :repeat size
+         :do (write (read-byte in) :stream out :pretty nil :base 36)))))
+
 (defun generate-auth-parameters
     (consumer signature-method timestamp version &optional token)
   (let ((parameters `(("oauth_consumer_key" . ,(token-key consumer))
                       ("oauth_signature_method" . ,(string signature-method))
                       ("oauth_timestamp" . ,(princ-to-string timestamp))
-                      ("oauth_nonce" . ,(princ-to-string
-                                         (random most-positive-fixnum)))
+                      #+unix ("oauth_nonce" . ,(generate-nonce))
+                      #-unix ("oauth_nonce" . ,(princ-to-string
+                                                (random most-positive-fixnum)))
                       ("oauth_version" . ,(princ-to-string version)))))
     (if token
         (cons `("oauth_token" . ,(url-decode (token-key token))) parameters)
