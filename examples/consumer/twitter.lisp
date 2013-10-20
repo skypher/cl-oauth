@@ -1,4 +1,3 @@
-
 (asdf:oos 'asdf:load-op 'cl-oauth)
 (asdf:oos 'asdf:load-op 'hunchentoot)
 
@@ -16,9 +15,9 @@
 
 
 ;;; go
-(defparameter *get-request-token-endpoint* "http://twitter.com/oauth/request_token")
-(defparameter *auth-request-token-endpoint* "http://twitter.com/oauth/authorize")
-(defparameter *get-access-token-endpoint* "http://twitter.com/oauth/access_token")
+(defparameter *get-request-token-endpoint* "https://api.twitter.com/oauth/request_token")
+(defparameter *auth-request-token-endpoint* "https://api.twitter.com/oauth/authorize")
+(defparameter *get-access-token-endpoint* "https://api.twitter.com/oauth/access_token")
 (defparameter *consumer-token* (make-consumer-token :key *key* :secret *secret*))
 (defparameter *request-token* nil)
 (defparameter *access-token* nil)
