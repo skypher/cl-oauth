@@ -20,6 +20,8 @@
 
 
 #.`(defstruct request-adapter ; TODO: make this a standard-class, too
+     "An adapter for server-specific parts of OAuth.
+The return value of REQUEST-OBJECT-FN must be comparable with EQ."
      ,@(loop for slotname in '(request-object-fn
                                request-method-fn
                                request-uri-fn
@@ -27,9 +29,7 @@
                                auth-parameters-fn
                                post-parameters-fn
                                get-parameters-fn)
-           collect `(,slotname nil :type (or function symbol null)))
-     (:documentation "An adapter for server-specific parts of OAuth.
-     The return value of REQUEST-OBJECT-FN must be comparable with EQ."))
+           collect `(,slotname nil :type (or function symbol null))))
 
 (defun make-hunchentoot-request-adapter ()
   (make-request-adapter :request-object-fn (lambda () hunchentoot:*request*)
