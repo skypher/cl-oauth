@@ -58,7 +58,7 @@
         (setf *access-token* (get-access-token))
         ;; test request:
         (babel:octets-to-string
-          (access-protected-resource "http://search.twitter.com/search.json?q=twitter"
+          (access-protected-resource "https://api.twitter.com/1.1/search/tweets.json?q=twitter"
                                      *access-token*))))))
 
 (pushnew 'callback-dispatcher hunchentoot:*dispatch-table*)
@@ -70,5 +70,5 @@
   (hunchentoot:stop *web-server*)
   (setf *web-server* nil))
 
-(setf *web-server* (hunchentoot:start (make-instance 'hunchentoot:acceptor :port *callback-port*)))
+(setf *web-server* (hunchentoot:start (make-instance 'hunchentoot:easy-acceptor :port *callback-port*)))
 
