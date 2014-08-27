@@ -306,6 +306,7 @@ whenever the access token is renewed."
                         :method request-method
                         :auth-location auth-location
                         :auth-parameters signed-parameters
+                        :parameters user-parameters
                         :additional-headers additional-headers
                         :drakma-args drakma-args)
         (if (eql status 200)
