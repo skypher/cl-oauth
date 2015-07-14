@@ -310,7 +310,7 @@ whenever the access token is renewed."
                         :additional-headers additional-headers
                         :drakma-args drakma-args)
         (if (eql status 200)
-          (values body status)
+          (values body status nil nil headers)
           (let* ((problem-report (get-problem-report headers body))
                  (problem-hint (cdr (assoc "oauth_problem" problem-report :test #'equalp)))
                  (problem-advice (cdr (assoc "oauth_problem_advice" problem-report :test #'equalp))))
@@ -323,5 +323,5 @@ whenever the access token is renewed."
                    (funcall on-refresh new-token))
                  (apply #'access-protected-resource uri new-token kwargs)))
               (t
-               (values body status problem-hint problem-advice)))))))))
+               (values body status problem-hint problem-advice headers)))))))))
 
